@@ -18,13 +18,14 @@ var wiredep       = require('wiredep').stream;
 var _             = require('underscore');
 
 
-// use this task to build and push dist/ to dist branch
-// for inclusion in consumming projects
+// use this task to build and push dist/ to a
+// deployment branch for inclusion in other projects
 gulp.task('deploy', ['build'], function() {
     var options = {
-        branch: 'deploy',
-        force: true,
+        branch: 'deploy', // deploy branch is named deploy
+        force: true,      // dist files are ignored, force to push them too
     }
+    // everything in public/ should be deployed
     return gulp.src('./public/**')
         .pipe(ghPages(options));
 });
@@ -139,6 +140,7 @@ gulp.task('serve', ['scripts', 'cssNano', 'inject'], function(){
 		});
 });
 
+// build task to compile all files in dist
 gulp.task('build', ['lint', 'scripts', 'sass', 'concatCss', 'cssNano', 'inject']);
 
 // Default Task

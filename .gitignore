@@ -1,8 +1,14 @@
-# dist files
+## dist files
+# files recreated by build process
 */dist/*
+# a directory created by gulp-gh-pages for caching deployed files
 .publish/
 
-# Platform-specific build files
+## Platform-specific build files
+# any new node packages that build 
+# platform-specific binaries may need 
+# to have those binary files or
+# platform files added to this list
 node_modules/.bin/node-sass
 node_modules/.bin/node-sass.cmd
 node_modules/*/vendor/
