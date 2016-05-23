@@ -1,5 +1,6 @@
 # dist files
 */dist/*
+.publish/
 
 # Platform-specific build files
 node_modules/.bin/node-sass
