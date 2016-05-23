@@ -25,7 +25,7 @@ gulp.task('deploy', ['build'], function() {
         branch: 'deploy',
         force: true,
     }
-    return gulp.src('./public/dist/**/*')
+    return gulp.src('./public/**')
         .pipe(ghPages(options));
 });
 
