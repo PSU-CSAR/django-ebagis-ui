@@ -1,3 +1,6 @@
+# dist files
+*/dist/*
+
 # Platform-specific build files
 node_modules/.bin/node-sass
 node_modules/.bin/node-sass.cmd
