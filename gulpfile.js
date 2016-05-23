@@ -5,6 +5,7 @@ var inject        = require('gulp-inject');
 var concat        = require('gulp-concat');
 var concatCss     = require('gulp-concat-css');
 var cssNano       = require('gulp-cssnano');
+var ghPages       = require('gulp-gh-pages');
 var rename        = require('gulp-rename');
 var sourceMaps    = require('gulp-sourcemaps');
 var templateCache = require('gulp-angular-templatecache');
@@ -15,6 +16,18 @@ var sass          = require('gulp-sass');
 var path          = require('path');
 var wiredep       = require('wiredep').stream;
 var _             = require('underscore');
+
+
+// use this task to build and push dist/ to dist branch
+// for inclusion in consumming projects
+gulp.task('deploy', ['build'], function() {
+    var options = {
+        branch: 'deploy',
+        force: true,
+    }
+    return gulp.src('./public/dist/**/*')
+        .pipe(ghPages(options));
+});
 
 // Lint to keep us in line
 gulp.task('lint', function() {
@@ -126,8 +139,10 @@ gulp.task('serve', ['scripts', 'cssNano', 'inject'], function(){
 		});
 });
 
+gulp.task('build', ['lint', 'scripts', 'sass', 'concatCss', 'cssNano', 'inject']);
+
 // Default Task
-gulp.task('default', ['lint', 'scripts', 'sass', 'concatCss', 'cssNano', 'inject', 'serve']);
+gulp.task('default', ['build', 'serve']);
 
 function prepareTemplates() {
 
