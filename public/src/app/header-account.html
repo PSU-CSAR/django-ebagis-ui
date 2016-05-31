@@ -1,0 +1,41 @@
+<li><a ng-hide="authenticated" ng-href="#/register">Register</a></li>
+<li><a ng-hide="authenticated" href="#/login">Login</a></li>
+<li class="dropdown" dropdown="" ng-show="authenticated">
+    <a href="#" class="dropdown-toggle" dropdown-toggle="" data-toggle="dropdown">Dropdown               <b class="caret"></b></a>
+    <ul class="dropdown-menu" role="menu">
+        <li role="menuitem"><a href="#/account">User Account</a></li>
+        <li class="divider"></li>
+        <li role="menuitem"><a href="#/logout">Sign Out</a></li>
+    </ul>
+</li>
+
+
+<!-- Single button with keyboard nav
+<li><a ng-hide="authenticated" ng-href="#/register">Register</a></li>
+<li><a ng-hide="authenticated" href="#/login">Login</a></li>
+<li>
+    <div class="btn-group" uib-dropdown keyboard-nav ng-show="authenticated">
+        <button id="simple-btn-keyboard-nav" type="button" class="btn btn-primary" uib-dropdown-toggle>
+            Dropdown with keyboard navigation <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu" uib-dropdown-menu role="menu" aria-labelledby="simple-btn-keyboard-nav">
+            <li role="menuitem"><a href="#/account">User Account</a></li>
+            <li class="divider"></li>
+            <li role="menuitem"><a href="#/logout">Sign Out</a></li>
+        </ul>
+    </div>
+</li>
+<p>
+    <a ng-hide="authenticated" href="#/login" class="btn btn-primary">Login</a>
+    <a ng-hide="authenticated" href="#/passwordReset" class="btn btn-primary">Send Password Reset</a>
+    <a ng-hide="authenticated" ng-click="goConfirmReset()" class="btn btn-primary">Confirm Password Reset</a>
+</p>
+<p>
+    <a ng-show="authenticated" href="#/logout" class="btn btn-primary">Logout</a>
+    <a ng-hide="authenticated" ng-href="#/register" class="btn btn-primary">Register</a>
+    <a ng-click="goVerify()" class="btn btn-primary">Verify Email</a>
+    <a ng-show="authenticated" href="#/passwordChange" class="btn btn-primary">Change Password</a>
+    <a ng-show="authenticated" href="#/userProfile" class="btn btn-primary">Profile</a>
+    <a href="#/authRequired" class="btn btn-primary">Restricted Page</a>
+</p>
+-->
