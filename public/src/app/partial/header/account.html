@@ -1,6 +1,6 @@
-<li><a ng-show="userProfile.isAnonymous()" ng-href="#/register">Register</a></li>
-<li><a ng-show="userProfile.isAnonymous()" href="#/login">Login</a></li>
-<li class="dropdown" dropdown="" ng-show="userProfile.isAuthenticated()">
+<li><a ng-hide="authenticated" ng-href="#/register">Register</a></li>
+<li><a ng-hide="authenticated" href="#/login">Login</a></li>
+<li class="dropdown" dropdown="" ng-show="authenticated"
     <a href="#" class="dropdown-toggle" dropdown-toggle="" data-toggle="dropdown">Dropdown               <b class="caret"></b></a>
     <ul class="dropdown-menu" role="menu">
         <li role="menuitem"><a href="#/account">User Account</a></li>

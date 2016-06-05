@@ -7,24 +7,24 @@
       <span class="icon-bar"></span>
       <span class="icon-bar"></span>
     </button>
-    <a class="navbar-brand" href="#">NRCS NWCC eBAGIS</a>
+    <a class="navbar-brand" ui-sref="home">NRCS NWCC eBAGIS</a>
   </div>
   <!-- Collect the nav links, forms, and other content for toggling -->
   <div class="collapse navbar-collapse" collapse="navCollapsed">
     <ul class="nav navbar-nav navbar-right">
-        <li><a ng-show="userProfile.$isAnonymous()" ng-href="#/register">Register</a></li>
-        <li><a ng-show="userProfile.$isAnonymous()" href="#/login">Login</a></li>
+        <li><a ng-hide="authenticated" ui-sref="register">Register</a></li>
+        <li><a ng-hide="authenticated" ui-sref="login">Login</a></li>
         <li>
-            <a ng-show="userProfile.$isAuthenticated" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
-                Logged in as:<span class="caret"></span>
+            <a ng-show="authenticated" href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">
+                Hello {{user.first_name}}<span class="caret"></span>
             </a>
             <ul class="dropdown-menu">
            <!-- <div class="btn-group" uib-dropdown keyboard-nav ng-show="authenticated">
                 Dropdown with keyboard navigation <span class="caret"></span>
                 <ul class="dropdown-menu" uib-dropdown-menu role="menu" aria-labelledby="simple-btn-keyboard-nav">-->
-                    <li role="menuitem"><a href="#/account">User Account</a></li>
+                    <li role="menuitem"><a ui-sref="account">Your Account</a></li>
                     <li class="divider"></li>
-                    <li role="menuitem"><a href="#/logout">Sign Out</a></li>
+                    <li role="menuitem"><a ui-sref="logout">Sign Out</a></li>
                 </ul>
             </div>
         </li>

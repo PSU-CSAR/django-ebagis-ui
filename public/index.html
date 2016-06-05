@@ -35,7 +35,7 @@
 	<![endif]-->
 
 </head>
-<body ng-controller="MasterCtrl">
+<body ng-controller="MasterController">
     <header></header>
     <!--[if lt IE 7]>
       <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
@@ -52,7 +52,7 @@
         </div>
 
         <!-- Add your site or application content here -->
-        <div ng-view=""></div>
+        <ui-view>content here</ui-view>
     </div>
 
     <!-- Google Analytics: change UA-XXXXX-X to be your site's ID
@@ -80,6 +80,7 @@
     <script src="lib/angular-sanitize/angular-sanitize.js"></script>
     <script src="lib/angular-route/angular-route.js"></script>
     <script src="lib/angular-bootstrap/ui-bootstrap-tpls.js"></script>
+    <script src="lib/angular-ui-router/release/angular-ui-router.js"></script>
     <!-- endbower -->
 
 	<!-- inject:js -->

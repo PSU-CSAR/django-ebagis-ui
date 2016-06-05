@@ -9,30 +9,59 @@ var app = angular.module('ebagis', [
     'ui.router',
 ]);
 
-app.directive('header', function(){
-  return {
-    restrict: 'E',
-    templateUrl: 'app-templates/app/partial/header/header.html',
-  };
-});
+app.directive('header', ['$rootScope', 'UserProfile', function($rootScope, UserProfile){
+   var linkFn = function(scope, element, attrs) {       
+        scope.authenticated = false;
+        scope.user = UserProfile.data;
+        
+        $rootScope.$on('UserProfile.authenticated', function() {
+            scope.$apply(function() {
+                scope.authenticated = true;
+                scope.user = UserProfile.data;
+                console.log("changed ", scope.authenticated);
+                console.log(scope.user);
+            });
+        });
+
+        $rootScope.$on('UserProfile.unauthenticated', function() {
+            scope.$apply(function() {
+                scope.authenticated = false;
+                scope.user = UserProfile.data;
+                console.log("changed ", scope.authenticated);
+                console.log(scope.user);
+            });
+        });
+    };
+
+    return {
+        restrict: 'E',
+        templateUrl: 'app-templates/app/partial/header/header.html',
+        link: linkFn,
+    };
+}]);
 
 app.directive('headerAccount', function(){
-  return {
-    restrict: 'E',
-    templateUrl: 'app-templates/app/partial/header/account.html',
-  };
+    return {
+        restrict: 'E',
+        templateUrl: 'app-templates/app/partial/header/account.html',
+    };
 });
 
-app.config(["$stateProvider", function ($stateProvider, $urlRouterProvider) {
+app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $urlRouterProvider) {
 
-    //$urlRouterProvider.otherwise('/');
+    $urlRouterProvider.otherwise('/');
 
     $stateProvider
 
+    
+    .state("forbidden", {
+            /* ... */
+     })
+    
     // anonymous states
     .state("login", {
         url: '/account/login',
-        templateUrl: 'partial/account/login.html',
+        templateUrl: 'app-templates/app/partial/account/login.html',
         controller: 'LoginController',
         resolve: {
             auth: ["Auth", function (Auth) { return Auth.isAnonymous(); }],
@@ -52,7 +81,7 @@ app.config(["$stateProvider", function ($stateProvider, $urlRouterProvider) {
 
     // authenticated states
     .state("logout", {
-        url: 'account/logout',
+        url: '/account/logout',
         templateUrl: 'app-templates/app/partial/account/logout.html',
         controller: 'LogoutController',
         resolve: {
@@ -62,7 +91,7 @@ app.config(["$stateProvider", function ($stateProvider, $urlRouterProvider) {
     })
 
     .state("account", {
-        url: 'account/',
+        url: '/account/',
         templateUrl: 'app-templates/app/partial/account/account.html',
         resolve: {
             auth: ["Auth", function (Auth) { return Auth.isAuthenticated(); }],
@@ -73,6 +102,7 @@ app.config(["$stateProvider", function ($stateProvider, $urlRouterProvider) {
     .state("home", {
         url: '/',
         templateUrl: 'app-templates/app/partial/main/home.html',
+        controller: 'MasterController',
         resolve: {
             auth: ["Auth", function (Auth) { return Auth.isAuthenticated(); }],
             userProfile: "UserProfile",
@@ -91,145 +121,229 @@ app.config(["$stateProvider", function ($stateProvider, $urlRouterProvider) {
 
 }])
 
-app.factory("Auth", ["$q", "UserProfile", function ($q, UserProfile) {
+app.factory("Auth", ["UserProfile", function (UserProfile) {
 
-  var Auth = {
+    var Auth = {
 
-    var userProfile = UserProfile
+        OK: 200,
 
-    OK: 200,
+        // "we don't know who you are, so we can't say if you're authorized to access
+        // this resource or not yet, please sign in first"
+        UNAUTHORIZED: 401,
 
-    // "we don't know who you are, so we can't say if you're authorized to access
-    // this resource or not yet, please sign in first"
-    UNAUTHORIZED: 401,
+        // "we know who you are, and your profile does not allow you to access this resource"
+        FORBIDDEN: 403,
 
-    // "we know who you are, and your profile does not allow you to access this resource"
-    FORBIDDEN: 403,
-
-    hasRole: function (role) {
-        if (userProfile.$hasRole(role)) {
-          return Auth.OK;
-        } else if (userProfile.$isAnonymous()) {
-          return $q.reject(Auth.UNAUTHORIZED);
-        } else {
-          return $q.reject(Auth.FORBIDDEN);
-        }
-      });
-    },
-
-    hasAnyRole: function (roles) {
-      return UserProfile.then(function (userProfile) {
-        if (userProfile.$hasAnyRole(roles)) {
-          return Auth.OK;
-        } else if (userProfile.$isAnonymous()) {
-          return $q.reject(Auth.UNAUTHORIZED);
-        } else {
-          return $q.reject(Auth.FORBIDDEN);
-        }
-      });
-    },
-
-    isAnonymous: function () {
-      return UserProfile.then(function (userProfile) {
-        if (userProfile.$isAnonymous()) {
-          return Auth.OK;
-        } else {
-          return $q.reject(Auth.FORBIDDEN);
-        }
-      });
-    },
-
-    isAuthenticated: function () {
-      return UserProfile.then(function (userProfile) {
-        if (userProfile.$isAuthenticated()) {
-          return Auth.OK;
-        } else {
-          return $q.reject(Auth.UNAUTHORIZED);
-        }
-      });
-    }
-
-  };
-
-  return Auth;
-
-}])
-
-app.factory("UserProfile", ["djangoAuth", function (djangoAuth) {
-
-    var userProfile = {};
-
-    var fetchUserProfile = function () {
-        return djangoAuth.profile().then(
-            function (response) {
-                for (var prop in userProfile) {
-                    if (userProfile.hasOwnProperty(prop)) {
-                        delete userProfile[prop];
-                    }
-                }
-
-            return angular.extend(userProfile, response.data, {
-
-                $refresh: fetchUserProfile,
-
-                $hasRole: function (role) {
-                    return userProfile.roles.indexOf(role) >= 0;
-                },
-
-                $hasAnyRole: function (roles) {
-                    return !!userProfile.roles.filter(function (role) {
-                        return roles.indexOf(role) >= 0;
-                    }).length;
-                },
-
-                $isAnonymous: function () {
-                    return !userProfile.hasOwnProperty('username');
-                },
-
-                $isAuthenticated: function () {
-                    return userProfile.hasOwnProperty('username');
+        hasRole: function(role) {
+            return new Promise(function(resolve, reject) {
+                if (UserProfile.hasRole(role)) {
+                    resolve(Auth.OK);
+                } else if (UserProfile.isAnonymous()) {
+                    reject(Auth.UNAUTHORIZED);
+                } else {
+                    reject(Auth.FORBIDDEN);
                 }
             });
-        });
+        },
+
+        hasAnyRole: function(roles) {
+            return new Promise(function(resolve, reject) {
+                if (UserProfile.hasAnyRole(roles)) {
+                    resolve(Auth.OK);
+                } else if (UserProfile.isAnonymous()) {
+                    reject(Auth.UNAUTHORIZED);
+                } else {
+                    reject(Auth.FORBIDDEN);
+                }
+            });
+        },
+
+        isAnonymous: function(force) {
+            return new Promise(function(resolve, reject) {
+                UserProfile.isAnonymous(force).then(
+                    function() {
+                        resolve(Auth.OK);
+                    }).catch(function(err) {
+                        reject(Auth.FORBIDDEN);
+                    }
+                );
+            });
+        },
+
+        isAuthenticated: function(force) {
+            return new Promise(function(resolve, reject) {
+                UserProfile.isAuthenticated(force).then(
+                    function() {
+                        resolve(Auth.OK);
+                    }).catch(function(err) {
+                        reject(Auth.UNAUTHORIZED);
+                    }
+                );
+            });
+        },
+
     };
 
-    return fetchUserProfile();
+    return Auth;
 
 }])
 
-app.run(["$rootScope", "Auth", "$state", function ($rootScope, Auth, $state) {
+class UserProfileClass {
 
-  $rootScope.$on("$stateChangeError", function (event, toState, toParams, fromState, fromParams, error) {
-    if (error == Auth.UNAUTHORIZED) {
-      $state.go("login");
-    } else if (error == Auth.FORBIDDEN) {
-      $state.go("forbidden");
+    constructor(auth, rootScope) {
+        this.$rootScope = rootScope;
+        this.authenticated = null,
+        this.auth = auth;
+        this.initialize();
     }
-  });
 
+    initialize() {
+        this.auth.initialize('https://test.ebagis.geog.pdx.edu/api/rest/account', false);
+        this.authenticationStatus(true);
+    }
+
+    setAuthenticated(val) {
+        if (this.authenticated != val) {
+            this.authenticated = val;
+            if (val) {
+                this.$rootScope.$broadcast("UserProfile.authenticated");
+            } else {
+                this.$rootScope.$broadcast("UserProfile.unauthenticated");
+            }
+        }
+    }
+
+    getAuthenticated() {
+        return this.authenticated;
+    }
+
+    refresh() {
+        up = this
+        return new Promise(function(resolve, reject) {
+            up.auth.profile().then(function(response) {
+                up.data = response;
+                up.setAuthenticated(true);
+                resolve(response);
+            }).catch(function(err) {
+                up.setAuthenticated(false);
+                reject(err);
+            });
+        });
+    }
+
+    hasRole(role) {
+        return this.data.roles.indexOf(role) >= 0;
+    }
+
+    hasAnyRole(roles) {
+        return !!this.data.roles.filter(function (role) {
+            return roles.indexOf(role) >= 0;
+        }).length;
+    }
+
+    isAnonymous(force) {
+        up = this
+        return new Promise(function(resolve, reject) {
+            up.authenticationStatus(force).then(
+                function() {
+                    reject();
+                }).catch(function(err) {
+                    resolve(err);
+                }
+            );
+        });
+    }
+
+    isAuthenticated(force) {
+        up = this
+        return new Promise(function(resolve, reject) {
+            up.authenticationStatus(force).then(
+                function() {
+                    resolve();
+                }).catch(function(err) {
+                    reject(err);
+                }
+            );
+        });
+    }
+
+    authenticationStatus(force) {
+        // Set force to true to ignore stored value and query API
+        force = force || false;
+        var up = this;
+        return new Promise(function(resolve, reject) {
+            if (up.getAuthenticated() != null && !force) {
+                // We have a stored value which means we can pass it back right away.
+                if (up.getAuthenticated() == false) {
+                    reject("User is not logged in.");
+                } else {
+                    resolve();
+                }
+            } else {
+                // There isn't a stored value, or we're forcing a request back to
+                // the API to get the authentication status.
+                up.refresh().then(function() {
+                    resolve();
+                }).catch(function(err) {
+                    reject("User is not logged in.", err);
+                });
+            }
+        });
+    }
+
+    login(username, password) {
+        up = this;
+        return up.auth.login(username, password).then(function(data){
+            up.setAuthenticated(true);
+            up.$rootScope.$broadcast("UserProfile.logged_in", data);
+        });
+    }
+
+    logout() {
+        up = this;
+        return up.auth.logout().then(function(){
+            up.setAuthenticated(false);
+            up.$rootScope.$broadcast("UserProfile.logged_out");
+        });
+    }
+}
+
+app.service("UserProfile", ["djangoAuth", "$rootScope", UserProfileClass]);
+
+app.run(["$rootScope", "Auth", "$state", "UserProfile", function ($rootScope, Auth, $state, UserProfile) {
+    // if a user trys to go to a page they can't access, redirect them
+    $rootScope.$on("$stateChangeError", function (event, toState, toParams, fromState, fromParams, error) {
+        console.log("caught an auth error: page returned ", error);
+        if (error == Auth.UNAUTHORIZED) {
+            $state.go("login");
+        } else if (error == Auth.FORBIDDEN) {
+            $state.go("forbidden");
+        }
+    });
 }])
 
-app.controller('UserprofileCtrl', function ($scope, djangoAuth, Validate) {
+app.controller('UserProfileController', ['$scope', 'djangoAuth', 'Validate', 'UserProfile', function ($scope, djangoAuth, Validate, UserProfile) {
     $scope.model = {'first_name':'','last_name':'','email':''};
     $scope.complete = false;
-    djangoAuth.profile().then(function(data){
-        $scope.model = data;
-    });
+   
+    console.log(UserProfile.data);
+    $scope.model = UserProfile.data;
+
     $scope.updateProfile = function(formData, model){
-      $scope.errors = [];
-      Validate.form_validation(formData,$scope.errors);
-      if(!formData.$invalid){
+        $scope.errors = [];
+        Validate.form_validation(formData,$scope.errors);
+        if (!formData.$invalid) {
         djangoAuth.updateProfile(model)
-        .then(function(data){
-            // success case
-            $scope.complete = true;
-        },function(data){
-            // error case
-            $scope.error = data;
-        });
-      }
+            .then(function(data) {
+                // success case
+                $scope.complete = true;
+            }, function(data) {
+                // error case
+                $scope.error = data;
+            });
+        }
     }
-  });
+}]);
 
 app.controller('AuthrequiredCtrl', function ($scope) {
     $scope.awesomeThings = [
@@ -239,58 +353,67 @@ app.controller('AuthrequiredCtrl', function ($scope) {
     ];
   });
 
-app.service('djangoAuth', function djangoAuth($q, $http, $cookies, $rootScope) {
-    // AngularJS will instantiate a singleton by calling "new" on this function
-    var service = {
-        /* START CUSTOMIZATION HERE */
+
+class ebagisAPI {
+    
+    constructor(http, cookies) {
+        this.$http = http;
+        this.$cookies = cookies;
+
         // Change this to point to your Django REST Auth API
         // e.g. /api/rest-auth  (DO NOT INCLUDE ENDING SLASH)
-        'API_URL': 'https://test.ebagis.geog.pdx.edu/api/rest/account',
+        this.API_URL = 'https://test.ebagis.geog.pdx.edu/api/rest/account',
         // Set use_session to true to use Django sessions to store security token.
         // Set use_session to false to store the security token locally and transmit it as a custom header.
-        'use_session': false,
-        /* END OF CUSTOMIZATION */
-        'authenticated': null,
-        'authPromise': null,
-        'request': function(args) {
-            // Let's retrieve the token from the cookie, if available
-            if($cookies.get('token')){
-                $http.defaults.headers.common.Authorization = 'Token ' + $cookies.get('token');
-            }
-            // Continue
-            params = args.params || {}
-            args = args || {};
-            var deferred = $q.defer(),
-                url = this.API_URL + args.url,
-                method = args.method || "GET",
-                params = params,
-                data = args.data || {};
+        this.use_session = false;
+    }
+
+    request(args) {    
+        // Let's retrieve the token from the cookie, if available
+        if (this.$cookies.get('token')) {
+            this.$http.defaults.headers.common.Authorization = 'Token ' + this.$cookies.get('token');
+        }
+        
+        // Continue
+        params = args.params || {}
+        args = args || {};
+        url = this.API_URL + args.url,
+        method = args.method || "GET",
+        params = params,
+        data = args.data || {};
+        api = this;
+
+        return new Promise(function(resolve, reject) {
             // Fire the request, as configured.
-            $http({
+            api.$http({
                 url: url,
-                withCredentials: this.use_session,
+                withCredentials: api.use_session,
                 method: method.toUpperCase(),
-                headers: {'X-CSRFToken': $cookies['csrftoken']},
+                headers: {'X-CSRFToken': api.$cookies['csrftoken']},
                 params: params,
                 data: data
             })
-            .success(angular.bind(this,function(data, status, headers, config) {
-                deferred.resolve(data, status);
+
+            .success(angular.bind(api, function(data, status, headers, config) {
+                resolve(data, status);
             }))
-            .error(angular.bind(this,function(data, status, headers, config) {
+
+            .error(angular.bind(api, function(data, status, headers, config) {
                 console.log("error syncing with: " + url);
+                
                 // Set request status
-                if(data){
+                if (data) {
                     data.status = status;
                 }
-                if(status == 0){
-                    if(data == ""){
+                
+                if (status == 0) {
+                    if (data == "") {
                         data = {};
                         data['status'] = 0;
                         data['non_field_errors'] = ["Could not connect. Please try again."];
                     }
                     // or if the data is null, then there was a timeout.
-                    if(data == null){
+                    if (data == null) {
                         // Inject a non field error alerting the user
                         // that there's been a timeout error.
                         data = {};
@@ -298,163 +421,125 @@ app.service('djangoAuth', function djangoAuth($q, $http, $cookies, $rootScope) {
                         data['non_field_errors'] = ["Server timed out. Please try again."];
                     }
                 }
-                // check to see if the error was a 401 and user is not yet logged in
-                if (data.status == 401) {
-                    // in this case we want to resolve the promise per success
-                    deferred.resolve(data, status);
-                } else {
-                    deferred.reject(data, status, headers, config);
-                }
+
+                reject(data, status, headers, config);
             }));
-            return deferred.promise;
-        },
-        'register': function(username,password1,password2,email,more){
-            var data = {
+        });
+    }
+
+    register(username, password1, password2, email, more) {
+        var data = {
+            'username':username,
+            'password1':password1,
+            'password2':password2,
+            'email':email
+        }
+        data = angular.extend(data, more);
+        return this.request({
+            'method': "POST",
+            'url': "/registration/",
+            'data' :data
+        });
+    }
+
+    login(username, password) {
+        var api = this;
+        return api.request({
+            'method': "POST",
+            'url': "/login/",
+            'data':{
                 'username':username,
-                'password1':password1,
-                'password2':password2,
+                'password':password
+            }
+        }).then(function(data) {
+            if (!api.use_session) {
+                api.$http.defaults.headers.common.Authorization = 'Token ' + data.key;
+                api.$cookies.put("token", data.key);
+            }
+        });
+    }
+
+    logout() {
+        var api = this;
+        return api.request({
+            'method': "POST",
+            'url': "/logout/"
+        }).then(function(data) {
+            delete api.$http.defaults.headers.common.Authorization;
+            api.$cookies.remove('token');
+        });
+    }
+    
+    changePassword(password1, password2) {
+        return this.request({
+            'method': "POST",
+            'url': "/password/change/",
+            'data': {
+                'new_password1':password1,
+                'new_password2':password2
+            }
+        });
+    }
+    
+    resetPassword(email) {
+        return this.request({
+            'method': "POST",
+            'url': "/password/reset/",
+            'data': {
                 'email':email
             }
-            data = angular.extend(data,more);
-            return this.request({
-                'method': "POST",
-                'url': "/registration/",
-                'data' :data
-            });
-        },
-        'login': function(username,password){
-            var djangoAuth = this;
-            return this.request({
-                'method': "POST",
-                'url': "/login/",
-                'data':{
-                    'username':username,
-                    'password':password
-                }
-            }).then(function(data){
-                if(!djangoAuth.use_session){
-                    $http.defaults.headers.common.Authorization = 'Token ' + data.key;
-                    $cookies.put("token", data.key);
-                }
-                djangoAuth.authenticated = true;
-                $rootScope.$broadcast("djangoAuth.logged_in", data);
-            });
-        },
-        'logout': function(){
-            var djangoAuth = this;
-            return this.request({
-                'method': "POST",
-                'url': "/logout/"
-            }).then(function(data){
-            delete $http.defaults.headers.common.Authorization;
-                $cookies.remove('token');
-                djangoAuth.authenticated = false;
-                $rootScope.$broadcast("djangoAuth.logged_out");
-            });
-        },
-        'changePassword': function(password1,password2){
-            return this.request({
-                'method': "POST",
-                'url': "/password/change/",
-                'data':{
-                    'new_password1':password1,
-                    'new_password2':password2
-                }
-            });
-        },
-        'resetPassword': function(email){
-            return this.request({
-                'method': "POST",
-                'url': "/password/reset/",
-                'data':{
-                    'email':email
-                }
-            });
-        },
-        'profile': function(){
-            return this.request({
-                'method': "GET",
-                'url': "/user/"
-            }); 
-        },
-        'updateProfile': function(data){
-            return this.request({
-                'method': "PATCH",
-                'url': "/user/",
-                'data':data
-            }); 
-        },
-        'verify': function(key){
-            return this.request({
-                'method': "POST",
-                'url': "/registration/verify-email/",
-                'data': {'key': key} 
-            });            
-        },
-        'confirmReset': function(uid,token,password1,password2){
-            return this.request({
-                'method': "POST",
-                'url': "/password/reset/confirm/",
-                'data':{
-                    'uid': uid,
-                    'token': token,
-                    'new_password1':password1,
-                    'new_password2':password2
-                }
-            });
-        },
-        'authenticationStatus': function(restrict, force){
-            // Set restrict to true to reject the promise if not logged in
-            // Set to false or omit to resolve when status is known
-            // Set force to true to ignore stored value and query API
-            restrict = restrict || false;
-            force = force || false;
-            if(this.authPromise == null || force){
-                this.authPromise = this.request({
-                    'method': "GET",
-                    'url': "/user/"
-                })
-            }
-            var da = this;
-            var getAuthStatus = $q.defer();
-            if(this.authenticated != null && !force){
-                // We have a stored value which means we can pass it back right away.
-                if(this.authenticated == false && restrict){
-                    getAuthStatus.reject("User is not logged in.");
-                }else{
-                    getAuthStatus.resolve();
-                }
-            }else{
-                // There isn't a stored value, or we're forcing a request back to
-                // the API to get the authentication status.
-                this.authPromise.then(function(){
-                    da.authenticated = true;
-                    getAuthStatus.resolve();
-                },function(){
-                    da.authenticated = false;
-                    if(restrict){
-                        getAuthStatus.reject("User is not logged in.");
-                    }else{
-                        getAuthStatus.resolve();
-                    }
-                });
-            }
-            return getAuthStatus.promise;
-        },
-        'initialize': function(url, sessions){
-            this.API_URL = url;
-            this.use_session = sessions;
-            return this.authenticationStatus(true, true);
-        }
-
+        });
     }
-    return service;
-  });
+    
+    profile() {
+        return this.request({
+            'method': "GET",
+            'url': "/user/",
+        }); 
+    }
+    
+    updateProfile(data) {
+        return this.request({
+            'method': "PATCH",
+            'url': "/user/",
+            'data': data
+        }); 
+    }
+    
+    verify(key) {
+        return this.request({
+            'method': "POST",
+            'url': "/registration/verify-email/",
+            'data': {'key': key} 
+        });            
+    }
+    
+    confirmReset(uid, token, password1, password2) {
+        return this.request({
+            'method': "POST",
+            'url': "/password/reset/confirm/",
+            'data': {
+                'uid': uid,
+                'token': token,
+                'new_password1':password1,
+                'new_password2':password2
+            }
+        });
+    }
+    
+    initialize(url, sessions) {
+        this.API_URL = url;
+        this.use_session = sessions;
+    }
 
-app.controller('LoginController', function ($scope, $state, djangoAuth, Validate, userProfile) {
+}
+
+app.service('djangoAuth', ['$http', '$cookies', ebagisAPI]);
+
+app.controller('LoginController', ['$scope', '$state', 'Validate', 'UserProfile', function ($scope, $state, Validate, UserProfile) {
     $scope.model = {
-        'username':'',
-        'password':''
+        'username': '',
+        'password': '',
     };
     $scope.complete = false;
 
@@ -463,44 +548,40 @@ app.controller('LoginController', function ($scope, $state, djangoAuth, Validate
         Validate.form_validation(formData,$scope.errors);
         
         if (!formData.$invalid) {
-            djangoAuth.login($scope.model.username, $scope.model.password)
+            UserProfile.login($scope.model.username, $scope.model.password)
             .then(
                 // we've logged in successfully
                 function(){
                     // so let's get this new user's profile
-                    return userProfile.$refresh();
+                    UserProfile.refresh();
+                    // redirect to the home page
+                    $state.go('home');
+                },
+                function(data) {
+                    // error case
+                    $scope.errors = data;
                 }
-                .then(
-                    // we've refreshed the user profile
-                    function() {
-                        // redirect to the home page
-                        $state.go('home');
-                    },
-                    function(data) {
-                        // error case
-                        $scope.errors = data;
-                    }
-            ));
+            );
         }
     }
-});
+}]);
 
-app.controller('LogoutController', function ($scope, $state, djangoAuth) {
-    djangoAuth.logout();
+app.controller('LogoutController', ['$scope', '$state', 'UserProfile', function ($scope, $state, UserProfile) {
+    UserProfile.logout();
     $state.go('login');
-});
+}]);
 
-app.controller('MainController', function ($scope, $cookies, $location, djangoAuth) {
+app.controller('MainController', ['$scope', '$cookies', '$location', 'djangoAuth', 'UserProfile', function ($scope, $cookies, $location, djangoAuth, UserProfile) {
     
     $scope.login = function(){
-      djangoAuth.login(prompt('Username'),prompt('password'))
+      UserProfile.login(prompt('Username'),prompt('password'))
       .then(function(data){
         handleSuccess(data);
       },handleError);
     }
     
     $scope.logout = function(){
-      djangoAuth.logout()
+      UserProfile.logout()
       .then(handleSuccess,handleError);
     }
     
@@ -556,36 +637,19 @@ app.controller('MainController', function ($scope, $cookies, $location, djangoAu
     }
 
     $scope.show_login = true;
-    $scope.$on("djangoAuth.logged_in", function(data){
+    $scope.$on("UserProfile.logged_in", function(data){
       $scope.show_login = false;
     });
-    $scope.$on("djangoAuth.logged_out", function(data){
+    $scope.$on("UserProfile.logged_out", function(data){
       $scope.show_login = true;
     });
 
-  });
+}]);
 
-app.controller('MasterController', function ($scope, $location, djangoAuth) {
-    // Assume user is not logged in until we hear otherwise
-    $scope.authenticated = false;
-    // Wait for the status of authentication, set scope var to true if it resolves
-    djangoAuth.authenticationStatus(true).then(function(){
-        $scope.authenticated = true;
-    });
-    // Wait and respond to the logout event.
-    $scope.$on('djangoAuth.logged_out', function() {
-      $scope.authenticated = false;
-    });
-    // Wait and respond to the log in event.
-    $scope.$on('djangoAuth.logged_in', function() {
-      $scope.authenticated = true;
-    });
-    // If the user attempts to access a restricted page, redirect them back to the main page.
-    $scope.$on('$routeChangeError', function(ev, current, previous, rejection){
-      console.error("Unable to change routes.  Error: ", rejection)
-      $location.path('/restricted').replace('/login');
-    });
-  });
+
+app.controller('MasterController', ['$scope', 'UserProfile', function ($scope, UserProfile) {
+    $scope.user = UserProfile.data;
+}]);
 
 app.controller('PasswordchangeController', function ($scope, djangoAuth, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
@@ -645,7 +709,7 @@ app.controller('PasswordresetconfirmController', function ($scope, $routeParams,
   });
 
 app.controller('RestrictedController', function ($scope, $location) {
-    $scope.$on('djangoAuth.logged_in', function() {
+    $scope.$on('UserProfile.logged_in', function() {
       $location.path('/');
     });
   });
