@@ -18,8 +18,7 @@ app.directive('header', ['$rootScope', 'UserProfile', function($rootScope, UserP
             scope.$apply(function() {
                 scope.authenticated = true;
                 scope.user = UserProfile.data;
-                console.log("changed ", scope.authenticated);
-                console.log(scope.user);
+                console.log("user after login: ", scope.user);
             });
         });
 
@@ -27,8 +26,7 @@ app.directive('header', ['$rootScope', 'UserProfile', function($rootScope, UserP
             scope.$apply(function() {
                 scope.authenticated = false;
                 scope.user = UserProfile.data;
-                console.log("changed ", scope.authenticated);
-                console.log(scope.user);
+                console.log("user after logout: ", scope.user);
             });
         });
     };
@@ -48,6 +46,14 @@ app.directive('headerAccount', function(){
 });
 
 app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $urlRouterProvider) {
+    // standard auth types
+    var auth = {
+        anon: ["Auth", function (Auth) { return Auth.isAnonymous(); }],
+        auth: ["Auth", function (Auth) { return Auth.isAuthenticated(); }],
+        admin: ["Auth", function (Auth) { return Auth.hasRole("ROLE_ADMIN"); }],
+    }
+
+
 
     $urlRouterProvider.otherwise('/');
 
@@ -64,7 +70,7 @@ app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $u
         templateUrl: 'app-templates/app/partial/account/login.html',
         controller: 'LoginController',
         resolve: {
-            auth: ["Auth", function (Auth) { return Auth.isAnonymous(); }],
+            auth: auth.anon,
             userProfile: "UserProfile",
         }
     })
@@ -74,7 +80,7 @@ app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $u
         templateUrl: 'app-templates/app/partial/account/register.html',
         controller: 'RegisterController',
         resolve: {
-            auth: ["Auth", function (Auth) { return Auth.isAnonymous(); }],
+            auth: auth.anon,
             userProfile: "UserProfile",
         }
     })
@@ -85,7 +91,7 @@ app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $u
         templateUrl: 'app-templates/app/partial/account/logout.html',
         controller: 'LogoutController',
         resolve: {
-            auth: ["Auth", function (Auth) { return Auth.isAuthenticated(); }],
+            auth: auth.auth,
             userProfile: "UserProfile",
         }
     })
@@ -94,7 +100,7 @@ app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $u
         url: '/account/',
         templateUrl: 'app-templates/app/partial/account/account.html',
         resolve: {
-            auth: ["Auth", function (Auth) { return Auth.isAuthenticated(); }],
+            auth: auth.auth,
             userProfile: "UserProfile",
         }
     })
@@ -104,7 +110,7 @@ app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $u
         templateUrl: 'app-templates/app/partial/main/home.html',
         controller: 'MasterController',
         resolve: {
-            auth: ["Auth", function (Auth) { return Auth.isAuthenticated(); }],
+            auth: auth.auth,
             userProfile: "UserProfile",
         }
     })
@@ -115,7 +121,7 @@ app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $u
     .state("admin", {
         /* ... */
         resolve: {
-        auth: ["Auth", function (Auth) { return Auth.hasRole("ROLE_ADMIN"); }],
+            auth: auth.admin,
         }
     });
 
@@ -190,16 +196,37 @@ app.factory("Auth", ["UserProfile", function (UserProfile) {
 
 class UserProfileClass {
 
-    constructor(auth, rootScope) {
+    constructor(api, rootScope) {
+        // use rootScope for signals to watchers
         this.$rootScope = rootScope;
-        this.authenticated = null,
-        this.auth = auth;
+
+        // need to store whether or not the current user is authenticated
+        this.authenticated = false,
+
+        // we use authPromise to store the last auth request made
+        // in case we've just made the request and it hasn't returned yet
+        // thus, we can be efficient and not request again unless forced
+        this.authPromise = null,
+        
+        // the service with the API methods
+        this.api = api;
+
+        // finally let's run some initialization logic
         this.initialize();
     }
 
     initialize() {
-        this.auth.initialize('https://test.ebagis.geog.pdx.edu/api/rest/account', false);
-        this.authenticationStatus(true);
+        // setup our API service
+        // first arg is the base URL of the server API
+        // second arg is a boolean of whether to use django sessions or not
+        this.api.initialize('https://test.ebagis.geog.pdx.edu/api/rest/account', false);
+        // run authenticationStatus the first time to determine initial
+        // value for this.authenticated
+        this.authenticationStatus(true);/*.then(function() {
+            console.log("user is logged in on profile initialization");
+        }).catch(function(err) {
+            console.log("error on initialization: ", err);
+        });*/
     }
 
     setAuthenticated(val) {
@@ -219,8 +246,9 @@ class UserProfileClass {
 
     refresh() {
         up = this
-        return new Promise(function(resolve, reject) {
-            up.auth.profile().then(function(response) {
+        up.authPromise = new Promise(function(resolve, reject) {
+        //return new Promise(function(resolve, reject) {
+            up.api.profile().then(function(response) {
                 up.data = response;
                 up.setAuthenticated(true);
                 resolve(response);
@@ -229,6 +257,7 @@ class UserProfileClass {
                 reject(err);
             });
         });
+        return up.authPromise;
     }
 
     hasRole(role) {
@@ -272,7 +301,7 @@ class UserProfileClass {
         force = force || false;
         var up = this;
         return new Promise(function(resolve, reject) {
-            if (up.getAuthenticated() != null && !force) {
+            if (up.authPromise != null && !force) {
                 // We have a stored value which means we can pass it back right away.
                 if (up.getAuthenticated() == false) {
                     reject("User is not logged in.");
@@ -282,6 +311,7 @@ class UserProfileClass {
             } else {
                 // There isn't a stored value, or we're forcing a request back to
                 // the API to get the authentication status.
+                //up.authPromise = up.refresh().then(function() {
                 up.refresh().then(function() {
                     resolve();
                 }).catch(function(err) {
@@ -293,36 +323,46 @@ class UserProfileClass {
 
     login(username, password) {
         up = this;
-        return up.auth.login(username, password).then(function(data){
-            up.setAuthenticated(true);
-            up.$rootScope.$broadcast("UserProfile.logged_in", data);
+        return up.api.login(username, password).then(function() {
+            return up.authenticationStatus(true).then(function() {
+                up.$rootScope.$broadcast("UserProfile.logged_in", data);
+            }).catch(function(err) {
+                console.log(err);
+            });
+        }).catch(function(err) {
+            console.log(err);
         });
     }
 
     logout() {
         up = this;
-        return up.auth.logout().then(function(){
+        return up.api.logout().then(function(){
+            up.data = null;
             up.setAuthenticated(false);
             up.$rootScope.$broadcast("UserProfile.logged_out");
+        }).catch(function(err) {
+            console.log(err);
         });
     }
 }
 
-app.service("UserProfile", ["djangoAuth", "$rootScope", UserProfileClass]);
+app.service("UserProfile", ["ebagisAPI", "$rootScope", UserProfileClass]);
 
 app.run(["$rootScope", "Auth", "$state", "UserProfile", function ($rootScope, Auth, $state, UserProfile) {
     // if a user trys to go to a page they can't access, redirect them
     $rootScope.$on("$stateChangeError", function (event, toState, toParams, fromState, fromParams, error) {
-        console.log("caught an auth error: page returned ", error);
+        console.log("caught an auth error: request to ", toState," with params ", toParams, " returned ", error);
         if (error == Auth.UNAUTHORIZED) {
+            console.log("unauthed: go to login");
             $state.go("login");
         } else if (error == Auth.FORBIDDEN) {
-            $state.go("forbidden");
+            console.log("forbidden: go home");
+            $state.go("home");
         }
     });
 }])
 
-app.controller('UserProfileController', ['$scope', 'djangoAuth', 'Validate', 'UserProfile', function ($scope, djangoAuth, Validate, UserProfile) {
+app.controller('UserProfileController', ['$scope', 'ebagisAPI', 'Validate', 'UserProfile', function ($scope, ebagisAPI, Validate, UserProfile) {
     $scope.model = {'first_name':'','last_name':'','email':''};
     $scope.complete = false;
    
@@ -333,7 +373,7 @@ app.controller('UserProfileController', ['$scope', 'djangoAuth', 'Validate', 'Us
         $scope.errors = [];
         Validate.form_validation(formData,$scope.errors);
         if (!formData.$invalid) {
-        djangoAuth.updateProfile(model)
+        ebagisAPI.updateProfile(model)
             .then(function(data) {
                 // success case
                 $scope.complete = true;
@@ -369,6 +409,9 @@ class ebagisAPI {
     }
 
     request(args) {    
+        // uncomment next line for request tracing
+        console.trace();
+
         // Let's retrieve the token from the cookie, if available
         if (this.$cookies.get('token')) {
             this.$http.defaults.headers.common.Authorization = 'Token ' + this.$cookies.get('token');
@@ -534,7 +577,7 @@ class ebagisAPI {
 
 }
 
-app.service('djangoAuth', ['$http', '$cookies', ebagisAPI]);
+app.service('ebagisAPI', ['$http', '$cookies', ebagisAPI]);
 
 app.controller('LoginController', ['$scope', '$state', 'Validate', 'UserProfile', function ($scope, $state, Validate, UserProfile) {
     $scope.model = {
@@ -549,29 +592,26 @@ app.controller('LoginController', ['$scope', '$state', 'Validate', 'UserProfile'
         
         if (!formData.$invalid) {
             UserProfile.login($scope.model.username, $scope.model.password)
-            .then(
-                // we've logged in successfully
-                function(){
-                    // so let's get this new user's profile
-                    UserProfile.refresh();
-                    // redirect to the home page
-                    $state.go('home');
-                },
-                function(data) {
+            .then(function() {
+                // successful login so redirect to the home page
+                $state.go('home');
+            }).catch(function(err) {
                     // error case
-                    $scope.errors = data;
-                }
-            );
+                    $scope.errors = err;
+            });
         }
     }
 }]);
 
 app.controller('LogoutController', ['$scope', '$state', 'UserProfile', function ($scope, $state, UserProfile) {
-    UserProfile.logout();
-    $state.go('login');
+    UserProfile.logout().then(function(){
+        $state.go('login');
+    }).catch(function(err) {
+        console.log(err);
+    });
 }]);
 
-app.controller('MainController', ['$scope', '$cookies', '$location', 'djangoAuth', 'UserProfile', function ($scope, $cookies, $location, djangoAuth, UserProfile) {
+app.controller('MainController', ['$scope', '$cookies', '$location', 'ebagisAPI', 'UserProfile', function ($scope, $cookies, $location, ebagisAPI, UserProfile) {
     
     $scope.login = function(){
       UserProfile.login(prompt('Username'),prompt('password'))
@@ -586,17 +626,17 @@ app.controller('MainController', ['$scope', '$cookies', '$location', 'djangoAuth
     }
     
     $scope.resetPassword = function(){
-      djangoAuth.resetPassword(prompt('Email'))
+      ebagisAPI.resetPassword(prompt('Email'))
       .then(handleSuccess,handleError);
     }
     
     $scope.register = function(){
-      djangoAuth.register(prompt('Username'),prompt('Password'),prompt('Email'))
+      ebagisAPI.register(prompt('Username'),prompt('Password'),prompt('Email'))
       .then(handleSuccess,handleError);
     }
     
     $scope.verify = function(){
-      djangoAuth.verify(prompt("Please enter verification code"))
+      ebagisAPI.verify(prompt("Please enter verification code"))
       .then(handleSuccess,handleError);
     }
     
@@ -605,22 +645,22 @@ app.controller('MainController', ['$scope', '$cookies', '$location', 'djangoAuth
     }
     
     $scope.changePassword = function(){
-      djangoAuth.changePassword(prompt("Password"), prompt("Repeat Password"))
+      ebagisAPI.changePassword(prompt("Password"), prompt("Repeat Password"))
       .then(handleSuccess,handleError);
     }
     
     $scope.profile = function(){
-      djangoAuth.profile()
+      ebagisAPI.profile()
       .then(handleSuccess,handleError);
     }
     
     $scope.updateProfile = function(){
-      djangoAuth.updateProfile({'first_name': prompt("First Name"), 'last_name': prompt("Last Name"), 'email': prompt("Email")})
+      ebagisAPI.updateProfile({'first_name': prompt("First Name"), 'last_name': prompt("Last Name"), 'email': prompt("Email")})
       .then(handleSuccess,handleError);
     }
     
     $scope.confirmReset = function(){
-      djangoAuth.confirmReset(prompt("Code 1"), prompt("Code 2"), prompt("Password"), prompt("Repeat Password"))
+      ebagisAPI.confirmReset(prompt("Code 1"), prompt("Code 2"), prompt("Password"), prompt("Repeat Password"))
       .then(handleSuccess,handleError);
     }
 
@@ -651,14 +691,14 @@ app.controller('MasterController', ['$scope', 'UserProfile', function ($scope, U
     $scope.user = UserProfile.data;
 }]);
 
-app.controller('PasswordchangeController', function ($scope, djangoAuth, Validate) {
+app.controller('PasswordchangeController', function ($scope, ebagisAPI, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
     $scope.complete = false;
     $scope.changePassword = function(formData){
       $scope.errors = [];
       Validate.form_validation(formData,$scope.errors);
       if(!formData.$invalid){
-        djangoAuth.changePassword($scope.model.new_password1, $scope.model.new_password2)
+        ebagisAPI.changePassword($scope.model.new_password1, $scope.model.new_password2)
         .then(function(data){
             // success case
             $scope.complete = true;
@@ -670,14 +710,14 @@ app.controller('PasswordchangeController', function ($scope, djangoAuth, Validat
     }
   });
 
-app.controller('PasswordresetController', function ($scope, djangoAuth, Validate) {
+app.controller('PasswordresetController', function ($scope, ebagisAPI, Validate) {
     $scope.model = {'email':''};
     $scope.complete = false;
     $scope.resetPassword = function(formData){
       $scope.errors = [];
       Validate.form_validation(formData,$scope.errors);
       if(!formData.$invalid){
-        djangoAuth.resetPassword($scope.model.email)
+        ebagisAPI.resetPassword($scope.model.email)
         .then(function(data){
             // success case
             $scope.complete = true;
@@ -689,14 +729,14 @@ app.controller('PasswordresetController', function ($scope, djangoAuth, Validate
     }
   });
 
-app.controller('PasswordresetconfirmController', function ($scope, $routeParams, djangoAuth, Validate) {
+app.controller('PasswordresetconfirmController', function ($scope, $routeParams, ebagisAPI, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
     $scope.complete = false;
     $scope.confirmReset = function(formData){
       $scope.errors = [];
       Validate.form_validation(formData,$scope.errors);
       if(!formData.$invalid){
-        djangoAuth.confirmReset($routeParams['firstToken'], $routeParams['passwordResetToken'], $scope.model.new_password1, $scope.model.new_password2)
+        ebagisAPI.confirmReset($routeParams['firstToken'], $routeParams['passwordResetToken'], $scope.model.new_password1, $scope.model.new_password2)
         .then(function(data){
             // success case
             $scope.complete = true;
@@ -714,14 +754,14 @@ app.controller('RestrictedController', function ($scope, $location) {
     });
   });
 
-app.controller('RegisterController', function ($scope, djangoAuth, Validate) {
+app.controller('RegisterController', function ($scope, ebagisAPI, Validate) {
     $scope.model = {'username':'','password':'','email':''};
     $scope.complete = false;
     $scope.register = function(formData){
       $scope.errors = [];
       Validate.form_validation(formData,$scope.errors);
       if(!formData.$invalid){
-        djangoAuth.register($scope.model.username,$scope.model.password1,$scope.model.password2,$scope.model.email)
+        ebagisAPI.register($scope.model.username,$scope.model.password1,$scope.model.password2,$scope.model.email)
         .then(function(data){
             // success case
             $scope.complete = true;
@@ -781,8 +821,8 @@ app.service('Validate', function Validate() {
     }
 });
 
-app.controller('VerifyemailController', function ($scope, $routeParams, djangoAuth) {
-    djangoAuth.verify($routeParams["emailVerificationToken"]).then(function(data){
+app.controller('VerifyemailController', function ($scope, $routeParams, ebagisAPI) {
+    ebagisAPI.verify($routeParams["emailVerificationToken"]).then(function(data){
         $scope.success = true;
     },function(data){
         $scope.failure = false;
