@@ -45,7 +45,8 @@ app.directive('headerAccount', function(){
     };
 });
 
-app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $urlRouterProvider) {
+app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', function ($stateProvider, $urlRouterProvider, $locationProvider) {
+
     // standard auth types
     var auth = {
         anon: ["Auth", function (Auth) { return Auth.isAnonymous(); }],
@@ -53,13 +54,15 @@ app.config(["$stateProvider", '$urlRouterProvider', function ($stateProvider, $u
         admin: ["Auth", function (Auth) { return Auth.hasRole("ROLE_ADMIN"); }],
     }
 
+    // remove the # from urls where supported
+    $locationProvider.html5Mode({enabled: true, requireBase: false});
 
-
+    // set the default route -> redirect requests to unrecognized pages
+    // might consider making a 404 page and redirecting to that
     $urlRouterProvider.otherwise('/');
 
+    // setup the states (routes) on the stateProvider
     $stateProvider
-
-    
     .state("forbidden", {
             /* ... */
      })
@@ -503,7 +506,7 @@ class ebagisAPI {
         var api = this;
         return api.request({
             'method': "POST",
-            'url': "/logout/"
+            'url': "/logout/",
         }).then(function(data) {
             delete api.$http.defaults.headers.common.Authorization;
             api.$cookies.remove('token');
