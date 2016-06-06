@@ -201,7 +201,7 @@ class UserProfileClass {
         this.$rootScope = rootScope;
 
         // need to store whether or not the current user is authenticated
-        this.authenticated = false,
+        this.authenticated = null,
 
         // we use authPromise to store the last auth request made
         // in case we've just made the request and it hasn't returned yet
@@ -222,11 +222,11 @@ class UserProfileClass {
         this.api.initialize('https://test.ebagis.geog.pdx.edu/api/rest/account', false);
         // run authenticationStatus the first time to determine initial
         // value for this.authenticated
-        this.authenticationStatus(true);/*.then(function() {
+        this.authenticationStatus(true).then(function() {
             console.log("user is logged in on profile initialization");
         }).catch(function(err) {
-            console.log("error on initialization: ", err);
-        });*/
+            console.log("profile error on initialization: ", err);
+        });
     }
 
     setAuthenticated(val) {
@@ -302,22 +302,18 @@ class UserProfileClass {
         var up = this;
         return new Promise(function(resolve, reject) {
             if (up.authPromise != null && !force) {
-                // We have a stored value which means we can pass it back right away.
-                if (up.getAuthenticated() == false) {
-                    reject("User is not logged in.");
-                } else {
-                    resolve();
-                }
+                // we have a stored promise
+                promise = up.authPromise;
             } else {
-                // There isn't a stored value, or we're forcing a request back to
-                // the API to get the authentication status.
-                //up.authPromise = up.refresh().then(function() {
-                up.refresh().then(function() {
-                    resolve();
-                }).catch(function(err) {
-                    reject("User is not logged in.", err);
-                });
+                // we don't have a strored promise, or we're forcing a
+                // request back to the API to verify the authentication status
+                promise = up.refresh();
             }
+            promise.then(function() {
+                resolve();
+            }).catch(function(err) {
+                reject("User is not logged in.", err);
+            });
         });
     }
 
@@ -338,6 +334,7 @@ class UserProfileClass {
         up = this;
         return up.api.logout().then(function(){
             up.data = null;
+            up.authPromise = null;
             up.setAuthenticated(false);
             up.$rootScope.$broadcast("UserProfile.logged_out");
         }).catch(function(err) {
