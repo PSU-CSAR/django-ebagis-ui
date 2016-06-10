@@ -1,3 +1,5 @@
+var PORT = 3000;
+
 var addStream     = require('add-stream');
 var gulp          = require('gulp');
 var nodemon       = require('gulp-nodemon');
@@ -16,7 +18,9 @@ var sass          = require('gulp-sass');
 var path          = require('path');
 var wiredep       = require('wiredep').stream;
 var _             = require('underscore');
-
+var hAF           = require('connect-history-api-fallback');
+var browserSync   = require('browser-sync').create();
+var reload        = browserSync.reload;
 
 // use this task to build and push dist/ to a
 // deployment branch for inclusion in other projects
@@ -102,12 +106,47 @@ gulp.task('inject', ['scripts', 'cssNano'], function(){
 
 });
 
-gulp.task('serve', ['scripts', 'cssNano', 'inject'], function(){
+// Static Server + watching scss/html files
+gulp.task('serve', ['sass'], function() {
+
+});
+
+// Compile sass into CSS & auto-inject into browsers
+gulp.task('sass', function() {
+    return gulp.src("app/scss/*.scss")
+        .pipe(sass())
+        .pipe(gulp.dest("app/css"))
+        .pipe(browserSync.stream());
+});
+
+gulp.task('browser-sync', function() {
+  browserSync.init({
+    proxy: {
+            target: 'localhost:' + PORT,
+            middleware: [ historyApiFallback() ]
+        }
+  });
+});
+
+
+// this is all totally jacked
+// take a look at https://www.browsersync.io/docs/gulp
+// need to setup tasks for just .ts and just .html
+// then I can do what it suggests to ensure everything
+// is done to the files before reloading the server
+
+// if all else fails, checkout and try again
+
+gulp.task('serve', ['browser-sync', 'scripts', 'cssNano', 'inject'], function(){
+    gulp.watch("app/scss/*.scss", ['sass']);
+    gulp.watch("app/*.html").on('change', browserSync.reload);
+    gulp.watch("scss/*.scss", ['sass']);
+    gulp.watch(["public/src/**/*(*.ts|*.js|*.html)"])reload);
 
 	var options = {
 		restartable: "rs",
 		verbose: true,
-		ext: "ts html scss",
+		ext: "ts js html scss",
 		script: 'server.js',
 		delayTime: 1,
 		watch: ['public/src/**/*(*.ts|*.html)', 'public/src/**/*.scss'],
@@ -136,7 +175,7 @@ gulp.task('serve', ['scripts', 'cssNano', 'inject'], function(){
 
 	return nodemon(options)
 		.on('restart', function(ev){
-			console.log('restarting..');
+			console.log('restarting...');
 		});
 });
 

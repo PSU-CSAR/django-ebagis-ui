@@ -55,7 +55,7 @@ app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', functio
     }
 
     // remove the # from urls where supported
-    $locationProvider.html5Mode({enabled: true, requireBase: false});
+    $locationProvider.html5Mode(true);
 
     // set the default route -> redirect requests to unrecognized pages
     // might consider making a 404 page and redirecting to that
@@ -82,6 +82,16 @@ app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', functio
         url: '/account/register',
         templateUrl: 'app-templates/app/partial/account/register.html',
         controller: 'RegisterController',
+        resolve: {
+            auth: auth.anon,
+            userProfile: "UserProfile",
+        }
+    })
+
+    .state("forgot", {
+        url: '/account/reset',
+        templateUrl: 'app-templates/app/partial/account/passwordreset.html',
+        controller: 'PasswordResetController',
         resolve: {
             auth: auth.anon,
             userProfile: "UserProfile",
@@ -487,6 +497,7 @@ class ebagisAPI {
 
     login(username, password) {
         var api = this;
+        api.$cookies.remove('token');
         return api.request({
             'method': "POST",
             'url': "/login/",
@@ -691,7 +702,7 @@ app.controller('MasterController', ['$scope', 'UserProfile', function ($scope, U
     $scope.user = UserProfile.data;
 }]);
 
-app.controller('PasswordchangeController', function ($scope, ebagisAPI, Validate) {
+app.controller('PasswordChangeController', function ($scope, ebagisAPI, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
     $scope.complete = false;
     $scope.changePassword = function(formData){
@@ -710,26 +721,26 @@ app.controller('PasswordchangeController', function ($scope, ebagisAPI, Validate
     }
   });
 
-app.controller('PasswordresetController', function ($scope, ebagisAPI, Validate) {
+app.controller('PasswordResetController', function ($scope, ebagisAPI, Validate) {
     $scope.model = {'email':''};
     $scope.complete = false;
     $scope.resetPassword = function(formData){
-      $scope.errors = [];
-      Validate.form_validation(formData,$scope.errors);
-      if(!formData.$invalid){
-        ebagisAPI.resetPassword($scope.model.email)
-        .then(function(data){
-            // success case
-            $scope.complete = true;
-        },function(data){
-            // error case
-            $scope.errors = data;
-        });
-      }
+        $scope.errors = [];
+        Validate.form_validation(formData,$scope.errors);
+        if(!formData.$invalid){
+            ebagisAPI.resetPassword($scope.model.email)
+            .then(function(data){
+                // success case
+                $scope.complete = true;
+            },function(data){
+                // error case
+                $scope.errors = data;
+            });
+        }
     }
-  });
+});
 
-app.controller('PasswordresetconfirmController', function ($scope, $routeParams, ebagisAPI, Validate) {
+app.controller('PasswordResetConfirmController', function ($scope, $routeParams, ebagisAPI, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
     $scope.complete = false;
     $scope.confirmReset = function(formData){
@@ -821,7 +832,7 @@ app.service('Validate', function Validate() {
     }
 });
 
-app.controller('VerifyemailController', function ($scope, $routeParams, ebagisAPI) {
+app.controller('VerifyEmailController', function ($scope, $routeParams, ebagisAPI) {
     ebagisAPI.verify($routeParams["emailVerificationToken"]).then(function(data){
         $scope.success = true;
     },function(data){

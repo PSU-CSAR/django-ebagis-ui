@@ -11,13 +11,15 @@ As most dependencies are included in the repository, setting up a development en
    Use npm to install the remaining dependencies bower,
    gulp, and typings:
 
-   `npm install -g bower gulp typings`
+   `npm install -g bower gulp typings browser-sync connect-history-api-fallback`
 
-   Note that I currently use the following versions of these three packages:
+   Note that I currently use the following versions of these packages:
 
    - bower@1.7.9
    - gulp@3.9.1
    - typings@0.8.1 (note that I plan to migrate to >=1.0)
+   - broswer-sync@2.12.12
+   - connect-history-api-fallback@1.2.0
 
 3. Clone this repository after `cd`'ing to your desired working directory:
    `git clone git@github.com:PSU-CSAR/django-ebagis-ui.git`
@@ -33,7 +35,8 @@ For most development tasks, you should only need to work in the `public/` direct
 
 `gulp` is the build tool used for this project.
 Running `gulp` will build the project,
-start a local webserver running on port 3000,
+start a local webserver running on port 3000
+(configurable in the gulp file),
 then watch the source for changes.
 This single command provides everything a developer might need for almost all tasks,
 aside from pushing changes to the deploy branch.
