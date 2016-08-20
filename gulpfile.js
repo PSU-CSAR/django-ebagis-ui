@@ -1,4 +1,6 @@
+var DEBUG = true;
 var PORT = 3000;
+var APP_DIR = "public";
 
 var addStream     = require('add-stream');
 var gulp          = require('gulp');
@@ -16,9 +18,10 @@ var tslint        = require('gulp-tslint');
 var uglify        = require('gulp-uglify');
 var sass          = require('gulp-sass');
 var path          = require('path');
-var wiredep       = require('wiredep').stream;
+//var wiredep       = require('wiredep').stream;
+var bowerFiles    = require('main-bower-files');
 var _             = require('underscore');
-var hAF           = require('connect-history-api-fallback');
+var history       = require('connect-history-api-fallback');
 var browserSync   = require('browser-sync').create();
 var reload        = browserSync.reload;
 
@@ -43,7 +46,6 @@ gulp.task('lint', function() {
 
 // Concatenate & minify JS
 gulp.task('scripts', function() {
-
 	return gulp.src('public/src/**/*.ts')
 		.pipe(addStream.obj(prepareTemplates()))
 		.pipe(sourceMaps.init())
@@ -56,7 +58,8 @@ gulp.task('scripts', function() {
 		.pipe(rename('app.min.js'))
 		.pipe(uglify())
 		.pipe(sourceMaps.write('.'))
-		.pipe(gulp.dest('public/dist'));
+		.pipe(gulp.dest('public/dist'))
+        .pipe(browserSync.stream());
 });
 
 // Compile, concat & minify sass
@@ -76,107 +79,82 @@ gulp.task('cssNano', ['sass', 'concatCss'], function() {
 	return gulp.src('public/dist/app.css')
 		.pipe(cssNano())
 		.pipe(rename({suffix: '.min'}))
-		.pipe(gulp.dest('public/dist'));
+		.pipe(gulp.dest('public/dist'))
+        .pipe(browserSync.stream());
 });
 
 // Inject dist + bower lib files
 gulp.task('inject', ['scripts', 'cssNano'], function(){
-
 	// inject our dist files
-	var injectSrc = gulp.src([
+	var injectLocal = gulp.src([
 		'./public/dist/app.css',
-		'./public/dist/app.js'
+		'./public/dist/app.js',
 	], { read: false });
 
-	var injectOptions = {
+	var injectLocalOptions = {
 		ignorePath: '/public'
 	};
 
-	// inject bower deps
-	var options = {
-		bowerJson: require('./bower.json'),
-		directory: './public/lib',
-		ignorePath: '../../public'
+	var injectBower = gulp.src(bowerFiles(), { read: false });
+	
+    var injectBowerOptions = {
+		//ignorePath: '/public'
+        name: 'bower',
+		ignorePath: '/public'
+        //relative: true
 	};
 
 	return gulp.src('./public/*.html')
-		.pipe(wiredep(options))
-		.pipe(inject(injectSrc, injectOptions))
+		.pipe(inject(injectLocal, injectLocalOptions))
+		.pipe(inject(injectBower, injectBowerOptions))
 		.pipe(gulp.dest('./public'));
-
 });
 
-// Static Server + watching scss/html files
-gulp.task('serve', ['sass'], function() {
-
-});
-
-// Compile sass into CSS & auto-inject into browsers
-gulp.task('sass', function() {
-    return gulp.src("app/scss/*.scss")
-        .pipe(sass())
-        .pipe(gulp.dest("app/css"))
-        .pipe(browserSync.stream());
-});
+//// Inject dist + bower lib files
+//gulp.task('inject', ['scripts', 'cssNano'], function(){
+//	// inject our dist files
+//	var injectSrc = gulp.src([
+//		'./public/dist/app.css',
+//		'./public/dist/app.js'
+//	], { read: false });
+//
+//	var injectOptions = {
+//		ignorePath: '/public'
+//	};
+//
+//	// inject bower deps
+//	var options = {
+//		bowerJson: require('./bower.json'),
+//		directory: './public/lib',
+//		ignorePath: '../../public/',
+//	};
+//
+//	return gulp.src('./public/*.html')
+//		.pipe(wiredep(options))
+//		.pipe(inject(injectSrc, injectOptions))
+//		.pipe(gulp.dest('./public'));
+//
+//});
 
 gulp.task('browser-sync', function() {
   browserSync.init({
-    proxy: {
+    server: {
+            baseDir: APP_DIR,
             target: 'localhost:' + PORT,
-            middleware: [ historyApiFallback() ]
-        }
+            middleware: [
+                // we use the history middleware to rewrite angular urls to index.html
+                // see http://stackoverflow.com/a/30711626
+                history({
+                    verbose: DEBUG,
+                }),
+            ]
+        },
   });
 });
 
-
-// this is all totally jacked
-// take a look at https://www.browsersync.io/docs/gulp
-// need to setup tasks for just .ts and just .html
-// then I can do what it suggests to ensure everything
-// is done to the files before reloading the server
-
-// if all else fails, checkout and try again
-
 gulp.task('serve', ['browser-sync', 'scripts', 'cssNano', 'inject'], function(){
-    gulp.watch("app/scss/*.scss", ['sass']);
-    gulp.watch("app/*.html").on('change', browserSync.reload);
-    gulp.watch("scss/*.scss", ['sass']);
-    gulp.watch(["public/src/**/*(*.ts|*.js|*.html)"])reload);
-
-	var options = {
-		restartable: "rs",
-		verbose: true,
-		ext: "ts js html scss",
-		script: 'server.js',
-		delayTime: 1,
-		watch: ['public/src/**/*(*.ts|*.html)', 'public/src/**/*.scss'],
-		env: {
-			'PORT': 3000
-		},
-		ignore: ["public/dist/*", "public/dist/**/**"],
-		// bit faster if we only do what we need to
-		tasks: function (changedFiles) {
-			var tasks = [];
-			changedFiles.forEach(function (file) {
-				var ext = path.extname(file);
-				if (ext === '.ts' || ext === '.html'){
-					tasks.push('lint');
-					tasks.push('scripts');
-				}
-				else if (ext === '.scss'){
-					tasks.push('sass');
-					tasks.push('concatCss');
-					tasks.push('cssNano');
-				}
-			});
-			return tasks
-		}
-	};
-
-	return nodemon(options)
-		.on('restart', function(ev){
-			console.log('restarting...');
-		});
+    gulp.watch('public/src/**/*.scss', ['cssNano']);
+    gulp.watch('public/src/**/*(*.ts|*.js|*.html)', ['scripts']);
 });
 
 // build task to compile all files in dist
@@ -186,7 +164,6 @@ gulp.task('build', ['lint', 'scripts', 'sass', 'concatCss', 'cssNano', 'inject']
 gulp.task('default', ['build', 'serve']);
 
 function prepareTemplates() {
-
 	// we get a conflict with the < % = var % > syntax for $templateCache
 	// template header, so we'll just encode values to keep yo happy
 	var encodedHeader = "angular.module(&quot;&lt;%= module %&gt;&quot;&lt;%= standalone %&gt;).run([&quot;$templateCache&quot;, function($templateCache:any) {";

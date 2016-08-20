@@ -49,8 +49,8 @@ app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', functio
 
     // standard auth types
     var auth = {
-        anon: ["Auth", function (Auth) { return Auth.isAnonymous(); }],
-        auth: ["Auth", function (Auth) { return Auth.isAuthenticated(); }],
+        anon: ["Auth", function (Auth) { return Auth.isAnonymous(true); }],
+        auth: ["Auth", function (Auth) { return Auth.isAuthenticated(true); }],
         admin: ["Auth", function (Auth) { return Auth.hasRole("ROLE_ADMIN"); }],
     }
 
@@ -59,12 +59,19 @@ app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', functio
 
     // set the default route -> redirect requests to unrecognized pages
     // might consider making a 404 page and redirecting to that
-    $urlRouterProvider.otherwise('/');
+    $urlRouterProvider.otherwise('404');
 
     // setup the states (routes) on the stateProvider
     $stateProvider
+
+    // anyone states
     .state("forbidden", {
             /* ... */
+     })
+
+    .state("404", {
+        url: '/404',
+        templateUrl: 'app-templates/app/partial/main/404.html',
      })
     
     // anonymous states
@@ -97,6 +104,28 @@ app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', functio
             userProfile: "UserProfile",
         }
     })
+
+    .state("resetConfirm", {
+        url: '/account/resetConfirm/{userToken:[0-9A-Za-z_\-]+}/{passwordResetToken:[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,20}}',
+        //url: '/account/resetConfirm/:userToken/:passwordResetToken',
+        templateUrl: 'app-templates/app/partial/account/passwordresetconfirm.html',
+        controller: 'PasswordResetConfirmController',
+        resolve: {
+            auth: auth.anon,
+            userProfile: "UserProfile",
+        }
+    })
+
+    .state("verifyEmail", {
+        url: '/account/verifyEmail/{emailVerificationToken:[0-9A-Za-z]{1,65}}',
+        templateUrl: 'app-templates/app/partial/account/verifyemail.html',
+        controller: 'VerifyEmailController',
+        resolve: {
+            auth: auth.anon,
+            userProfile: "UserProfile",
+        }
+    })
+
 
     // authenticated states
     .state("logout", {
@@ -152,6 +181,8 @@ app.factory("Auth", ["UserProfile", function (UserProfile) {
 
         // "we know who you are, and your profile does not allow you to access this resource"
         FORBIDDEN: 403,
+
+        NOTFOUND: 404,
 
         hasRole: function(role) {
             return new Promise(function(resolve, reject) {
@@ -368,6 +399,9 @@ app.run(["$rootScope", "Auth", "$state", "UserProfile", function ($rootScope, Au
         } else if (error == Auth.FORBIDDEN) {
             console.log("forbidden: go home");
             $state.go("home");
+        } else if (error == Auth.NOTFOUND) {
+            console.log("not found: go 404");
+            $state.go("404");
         }
     });
 }])
@@ -406,9 +440,10 @@ app.controller('AuthrequiredCtrl', function ($scope) {
 
 class ebagisAPI {
     
-    constructor(http, cookies) {
+    constructor(http, cookies, state) {
         this.$http = http;
         this.$cookies = cookies;
+        this.$state = state;
 
         // Change this to point to your Django REST Auth API
         // e.g. /api/rest-auth  (DO NOT INCLUDE ENDING SLASH)
@@ -485,7 +520,8 @@ class ebagisAPI {
             'username':username,
             'password1':password1,
             'password2':password2,
-            'email':email
+            'email':email,
+            'activation_url': this.$state.href('verifyEmail').replace(/\/+/g, "/"),
         }
         data = angular.extend(data, more);
         return this.request({
@@ -497,6 +533,7 @@ class ebagisAPI {
 
     login(username, password) {
         var api = this;
+        delete api.$http.defaults.headers.common.Authorization;
         api.$cookies.remove('token');
         return api.request({
             'method': "POST",
@@ -529,8 +566,8 @@ class ebagisAPI {
             'method': "POST",
             'url': "/password/change/",
             'data': {
-                'new_password1':password1,
-                'new_password2':password2
+                'new_password1': password1,
+                'new_password2': password2
             }
         });
     }
@@ -540,7 +577,9 @@ class ebagisAPI {
             'method': "POST",
             'url': "/password/reset/",
             'data': {
-                'email':email
+                'email': email,
+                'reset_url': this.$state.href('resetConfirm').replace(/\/+/g, "/"),
+                'site_name': 'ebagis',
             }
         });
     }
@@ -588,7 +627,7 @@ class ebagisAPI {
 
 }
 
-app.service('ebagisAPI', ['$http', '$cookies', ebagisAPI]);
+app.service('ebagisAPI', ['$http', '$cookies', '$state', ebagisAPI]);
 
 app.controller('LoginController', ['$scope', '$state', 'Validate', 'UserProfile', function ($scope, $state, Validate, UserProfile) {
     $scope.model = {
@@ -721,39 +760,76 @@ app.controller('PasswordChangeController', function ($scope, ebagisAPI, Validate
     }
   });
 
-app.controller('PasswordResetController', function ($scope, ebagisAPI, Validate) {
-    $scope.model = {'email':''};
-    $scope.complete = false;
-    $scope.resetPassword = function(formData){
-        $scope.errors = [];
-        Validate.form_validation(formData,$scope.errors);
-        if(!formData.$invalid){
-            ebagisAPI.resetPassword($scope.model.email)
-            .then(function(data){
+app.controller('PasswordResetController', function ($scope, $state, $timeout, ebagisAPI, Validate) {
+    $scope.processForm = function(email) {
+        //$scope.errors = [];
+        //Validate.form_validation(email, $scope.errors);
+        //if (!$scope.email.$invalid) {
+            console.log($scope.email);
+            ebagisAPI.resetPassword($scope.email)
+            .then(function(data) {
                 // success case
-                $scope.complete = true;
+                console.log(data);
+                $scope.$apply(function() {
+                    $scope.message = data.success;
+                });
+                $timeout(function(){$state.go("login");}, 3000);
+            }, function(data) {
+                // error case
+                console.log(data);
+                $scope.$apply(function () {
+                    $scope.errors = data;
+                });
+            });
+        //}
+    };
+});
+
+/*
+app.controller('PasswordResetController', function ($scope, $state, $timeout, ebagisAPI, Validate) {
+    $scope.model = {'email': ''};
+    $scope.complete = false;
+    $scope.resetPassword = function(formData) {
+        $scope.errors = [];
+        Validate.form_validation(formData, $scope.errors);
+        if (!formData.$invalid) {
+            ebagisAPI.resetPassword($scope.model.email)
+            .then(function(data) {
+                // success case
+                $scope.$apply(function() {
+                    $scope.complete = true;
+                });
+                $timeout(function(){$state.go("login");}, 3000);
             },function(data){
                 // error case
-                $scope.errors = data;
+                $scope.$apply(function() {
+                    $scope.errors = data;
+                });
             });
         }
     }
 });
+*/
 
-app.controller('PasswordResetConfirmController', function ($scope, $routeParams, ebagisAPI, Validate) {
+app.controller('PasswordResetConfirmController', function ($scope, $stateParams, $state, $timeout, ebagisAPI, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
     $scope.complete = false;
     $scope.confirmReset = function(formData){
       $scope.errors = [];
       Validate.form_validation(formData,$scope.errors);
       if(!formData.$invalid){
-        ebagisAPI.confirmReset($routeParams['firstToken'], $routeParams['passwordResetToken'], $scope.model.new_password1, $scope.model.new_password2)
+        ebagisAPI.confirmReset($stateParams['userToken'], $stateParams['passwordResetToken'], $scope.model.new_password1, $scope.model.new_password2)
         .then(function(data){
             // success case
-            $scope.complete = true;
+            $scope.$apply(function() {
+                $scope.complete = true;
+            });
+            $timeout(function(){$state.go("login");}, 3000);
         },function(data){
             // error case
-            $scope.errors = data;
+            $scope.$apply(function() {
+                $scope.errors = data;
+            });
         });
       }
     }
@@ -775,10 +851,14 @@ app.controller('RegisterController', function ($scope, ebagisAPI, Validate) {
         ebagisAPI.register($scope.model.username,$scope.model.password1,$scope.model.password2,$scope.model.email)
         .then(function(data){
             // success case
-            $scope.complete = true;
+            $scope.$apply(function() {
+                $scope.complete = true;
+            });
         },function(data){
             // error case
-            $scope.errors = data;
+            $scope.$apply(function() {
+                $scope.errors = data;
+            });
         });
       }
     }
@@ -832,8 +912,8 @@ app.service('Validate', function Validate() {
     }
 });
 
-app.controller('VerifyEmailController', function ($scope, $routeParams, ebagisAPI) {
-    ebagisAPI.verify($routeParams["emailVerificationToken"]).then(function(data){
+app.controller('VerifyEmailController', function ($scope, $stateParams, ebagisAPI) {
+    ebagisAPI.verify($stateParams["emailVerificationToken"]).then(function(data){
         $scope.success = true;
     },function(data){
         $scope.failure = false;
