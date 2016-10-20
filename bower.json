@@ -9,7 +9,9 @@
     "angular-sanitize": "*",
     "angular-route": "*",
     "angular-bootstrap": "*",
-    "angular-ui-router": "*"
+    "angular-ui-router": "*",
+    "leaflet": "1.0.0",
+    "uikit": "2.26.4"
   },
   "overrides": {
     "bootstrap": {
