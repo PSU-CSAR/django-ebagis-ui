@@ -12,13 +12,17 @@
     <meta name="description" content="">
     <meta name="viewport" content="width=device-width">
 
+    <link rel="stylesheet" property="stylesheet" type="text/css" href="/lib/leaflet-control-bar-master/src/L.Control.Bar.css">
+    
     <!-- bower:css -->
-    <link rel="stylesheet" href="lib/bootstrap/dist/css/bootstrap.css" />
-    <!-- endbower -->
+    <link rel="stylesheet" href="/lib/leaflet/dist/leaflet.css">
+    <link rel="stylesheet" href="/lib/uikit/css/uikit.min.css">
+    <link rel="stylesheet" href="/lib/bootstrap/dist/css/bootstrap.css">
+    <!-- endinject -->
 
-	<!-- inject:css -->
-	<link rel="stylesheet" href="/dist/app.css">
-	<!-- endinject -->
+    <!-- inject:css -->
+    <link rel="stylesheet" href="/dist/app.css">
+    <!-- endinject -->
 
 	<style>
 		body {
@@ -34,24 +38,19 @@
 		<script src="//html5shim.googlecode.com/svn/trunk/html5.js"></script>
 	<![endif]-->
 
-</head>
-<body>
+    <!-- needed for angular locationProvider in html5 mode -->
+    <base href="/">
 
-  <body ng-controller="MasterCtrl">
+</head>
+<body ng-controller="RootController">
+    <header></header>
     <!--[if lt IE 7]>
       <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
     <![endif]-->
 
     <div class="container">
-        <div class="header">
-          <ul class="nav nav-pills pull-right">
-            <li class="active"><a ng-href="#/">Home</a></li>
-          </ul>
-          <h3 class="text-muted">Angular Django Registration Auth Demo</h3>
-        </div>
-
         <!-- Add your site or application content here -->
-        <div ng-view=""></div>
+        <ui-view></ui-view>
     </div>
 
     <!-- Google Analytics: change UA-XXXXX-X to be your site's ID
@@ -71,18 +70,28 @@
     <![endif]-->
 
     <!-- bower:js -->
-    <script src="lib/jquery/dist/jquery.js"></script>
-    <script src="lib/bootstrap/dist/js/bootstrap.js"></script>
-    <script src="lib/angular/angular.js"></script>
-    <script src="lib/angular-cookies/angular-cookies.js"></script>
-    <script src="lib/angular-resource/angular-resource.js"></script>
-    <script src="lib/angular-sanitize/angular-sanitize.js"></script>
-    <script src="lib/angular-route/angular-route.js"></script>
-    <!-- endbower -->
+    <script src="/lib/jquery/dist/jquery.js"></script>
+    <script src="/lib/angular/angular.js"></script>
+    <script src="/lib/angular-cookies/angular-cookies.js"></script>
+    <script src="/lib/angular-resource/angular-resource.js"></script>
+    <script src="/lib/angular-sanitize/angular-sanitize.js"></script>
+    <script src="/lib/angular-route/angular-route.js"></script>
+    <script src="/lib/angular-bootstrap/ui-bootstrap-tpls.js"></script>
+    <script src="/lib/angular-ui-router/release/angular-ui-router.js"></script>
+    <script src="/lib/leaflet/dist/leaflet-src.js"></script>
+    <script src="/lib/uikit/js/uikit.min.js"></script>
+    <script src="/lib/bootstrap/dist/js/bootstrap.js"></script>
+    <!-- endinject -->
 
-	<!-- inject:js -->
-	<script src="/dist/app.js"></script>
-	<!-- endinject -->
+    <!-- inject:js -->
+    <script src="/dist/app.js"></script>
+    <!-- endinject -->
+    
+    <script type="text/javascript" src="/lib/leaflet-control-bar-master/src/L.Control.Bar.js"></script>
+
+    <script id="__bs_script__">//<![CDATA[
+        document.write("<script async src='http://HOST:3000/browser-sync/browser-sync-client.2.13.0.js'><\/script>".replace("HOST", location.hostname));
+    //]]></script>
 
 </body>
 </html>
