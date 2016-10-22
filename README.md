@@ -1,4 +1,4 @@
-# django-ebagis-ui
+# ebagis-ui
 
 ## Setting up a development environment
 
@@ -22,7 +22,7 @@ As most dependencies are included in the repository, setting up a development en
    - connect-history-api-fallback@1.2.0
 
 3. Clone this repository after `cd`'ing to your desired working directory:
-   `git clone git@github.com:PSU-CSAR/django-ebagis-ui.git`
+   `git clone git@github.com:PSU-CSAR/ebagis-ui.git`
 
 At this point you should be set to start developing.
 
