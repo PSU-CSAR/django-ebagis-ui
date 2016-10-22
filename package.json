@@ -16,7 +16,7 @@
     "angular",
     "typescript"
   ],
-  "repository": "https://github.com/PSU-CSAR/django-ebagis-ui",
+  "repository": "https://github.com/PSU-CSAR/ebagis-ui",
   "dependencies": {
     "angular-ui-bootstrap": "^1.3.3",
     "connect-history-api-fallback": "^1.2.0",
