@@ -1,6 +1,6 @@
 {
   "name": "ebagis",
-  "version": "0.0.0",
+  "version": "0.0.2",
   "description": "SPA frontend for the PSU CSAR eBAGIS project",
   "main": "server.js",
   "scripts": {
@@ -20,7 +20,9 @@
   "dependencies": {
     "angular-ui-bootstrap": "^1.3.3",
     "connect-history-api-fallback": "^1.2.0",
-    "express": "^4.13.3"
+    "express": "^4.13.3",
+    "gulp-bump": "^2.4.0",
+    "yargs": "^6.3.0"
   },
   "devDependencies": {
     "add-stream": "^1.0.0",

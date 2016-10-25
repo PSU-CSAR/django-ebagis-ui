@@ -24,16 +24,36 @@ var _             = require('underscore');
 var history       = require('connect-history-api-fallback');
 var browserSync   = require('browser-sync').create();
 var reload        = browserSync.reload;
+var bump          = require('gulp-bump');
+var args          = require('./args');
+
+
+// bump the version in the public/version.json file
+gulp.task('_bump-version.json', function() {
+    return gulp.src('./public/version.json')
+    .pipe(bump({type:args.versionBumpType})) //major|minor|patch|prerelease
+    .pipe(gulp.dest('./public/'));
+});
+
+// bump the version in the package.json and public/version.json files
+gulp.task('_bump-packages', function() {
+    return gulp.src(['./package.json', './bower.json'])
+    .pipe(bump({type:args.versionBumpType})) //major|minor|patch|prerelease
+    .pipe(gulp.dest('./'));
+});
+
+// bump version on all files
+gulp.task('bump-version', ['_bump-packages', '_bump-version.json'])
 
 // use this task to build and push dist/ to a
 // deployment branch for inclusion in other projects
-gulp.task('deploy', ['build'], function() {
+gulp.task('deploy', ['bump-version', 'build'], function() {
     var options = {
         branch: 'deploy', // deploy branch is named deploy
         force: true,      // dist files are ignored, force to push them too
     }
     // everything in public/ should be deployed
-    return gulp.src('./public/**')
+    return gulp.src(['./public/**', '!**/src/**'])
         .pipe(ghPages(options));
 });
 
