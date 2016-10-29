@@ -29,7 +29,7 @@ setup(
     url='https://github.com/PSU-CSAR/django-ebagis-ui',
     download_url=download_url % version,
     install_requires=[
-        'django-ebagis>=0.3.0',
+        #'django-ebagis>=0.3.0',
     ],
     license='',
 )
