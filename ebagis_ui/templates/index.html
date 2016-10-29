@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<!--[if lt IE 7]>      <html class="no-js lt-ie9 lt-ie8 lt-ie7"> <![endif]-->
+<!--[if IE 7]>         <html class="no-js lt-ie9 lt-ie8"> <![endif]-->
+<!--[if IE 8]>         <html class="no-js lt-ie9"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js"> <!--<![endif]-->
+
+{% load static %}
+
+<html lang="en" ng-app="ebagis">
+<head>
+	<meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<title>eBAGIS - NRCS NWCC - PSU CSAR</title>
+
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width">
+
+    <!-- bower:css -->
+    <link rel="stylesheet" href={% static '/lib/leaflet/dist/leaflet.css' %}>
+    <link rel="stylesheet" href={% static '/lib/uikit/css/uikit.min.css' %}>
+    <link rel="stylesheet" href={% static '/lib/bootstrap/dist/css/bootstrap.css' %}>
+    <!-- endinject -->
+
+    <!-- inject:css -->
+    <link rel="stylesheet" href={% static '/dist/app.css' %}>
+    <link rel="stylesheet" href={% static '/lib/leaflet-control-bar-master/src/L.Control.Bar.css' %}>
+    <!-- endinject -->
+
+	<style>
+		body {
+			padding-top: 50px;
+		}
+		.starter-template {
+			padding: 40px 15px;
+			text-align: center;
+		}
+	</style>
+
+	<!--[if lt IE 9]>
+		<script src="//html5shim.googlecode.com/svn/trunk/html5.js"></script>
+	<![endif]-->
+
+    <!-- needed for angular locationProvider in html5 mode -->
+    <base href="/">
+
+</head>
+<body ng-controller="RootController">
+    <header></header>
+    <!--[if lt IE 7]>
+      <p class="browsehappy">You are using an <strong>outdated</strong> browser. Please <a href="http://browsehappy.com/">upgrade your browser</a> to improve your experience.</p>
+    <![endif]-->
+
+    <div class="container">
+        <!-- Add your site or application content here -->
+        <ui-view></ui-view>
+    </div>
+
+    <!-- Google Analytics: change UA-XXXXX-X to be your site's ID
+     <script>
+       (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+       (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+       m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+       })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+       ga('create', 'UA-XXXXX-X');
+       ga('send', 'pageview');
+    </script>-->
+
+    <!--[if lt IE 9]>
+    <script src="bower_components/es5-shim/es5-shim.js"></script>
+    <script src="bower_components/json3/lib/json3.min.js"></script>
+    <![endif]-->
+
+    <!-- bower:js -->
+    <script src={% static '/lib/jquery/dist/jquery.js' %}></script>
+    <script src={% static '/lib/angular/angular.js' %}></script>
+    <script src={% static '/lib/angular-cookies/angular-cookies.js' %}></script>
+    <script src={% static '/lib/angular-resource/angular-resource.js' %}></script>
+    <script src={% static '/lib/angular-sanitize/angular-sanitize.js' %}></script>
+    <script src={% static '/lib/angular-route/angular-route.js' %}></script>
+    <script src={% static '/lib/angular-bootstrap/ui-bootstrap-tpls.js' %}></script>
+    <script src={% static '/lib/angular-ui-router/release/angular-ui-router.js' %}></script>
+    <script src={% static '/lib/leaflet/dist/leaflet-src.js' %}></script>
+    <script src={% static '/lib/uikit/js/uikit.min.js' %}></script>
+    <script src={% static '/lib/bootstrap/dist/js/bootstrap.js' %}></script>
+    <!-- endinject -->
+
+    <!-- inject:js -->
+    <script src={% static '/dist/app.js' %}></script>
+    <script src={% static '/lib/leaflet-control-bar-master/src/L.Control.Bar.js' %}></script>
+    <!-- endinject -->
+    
+    <script id="__bs_script__">//<![CDATA[
+        document.write("<script async src='http://HOST:3000/browser-sync/browser-sync-client.2.13.0.js'><\/script>".replace("HOST", location.hostname));
+    //]]></script>
+
+</body>
+</html>
+<!--
+<div class="container">
+
+	<div class="starter-template">
+		<h1>django-ebagis-ui has been scaffolded, yo!</h1>
+		<p class="lead">With layouts and styling by bootstrap</p>
+
+		<demo></demo>
+
+	</div>
+
+</div>
+-->
