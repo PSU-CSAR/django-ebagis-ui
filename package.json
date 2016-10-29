@@ -1,6 +1,6 @@
 {
   "name": "ebagis",
-  "version": "0.0.2",
+  "version": "0.0.1",
   "description": "SPA frontend for the PSU CSAR eBAGIS project",
   "main": "server.js",
   "scripts": {
@@ -34,9 +34,11 @@
     "gulp-concat-css": "^2.2.0",
     "gulp-cssnano": "^2.1.0",
     "gulp-gh-pages": "^0.5.4",
+    "gulp-if": "^2.0.1",
     "gulp-inject": "^3.0.0",
     "gulp-nodemon": "^2.0.6",
     "gulp-rename": "^1.2.2",
+    "gulp-replace": "^0.5.4",
     "gulp-sass": "^2.1.1",
     "gulp-sourcemaps": "^1.5.2",
     "gulp-tslint": "^3.3.0-beta",
