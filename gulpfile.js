@@ -26,7 +26,9 @@ var browserSync   = require('browser-sync').create();
 var reload        = browserSync.reload;
 var bump          = require('gulp-bump');
 var args          = require('./args');
-
+var replace       = require('gulp-replace');
+var gulpif        = require('gulp-if');
+ 
 
 // bump the version in the public/version.json file
 gulp.task('_bump-version.json', function() {
@@ -52,8 +54,17 @@ gulp.task('deploy', ['bump-version', 'build'], function() {
         branch: 'deploy', // deploy branch is named deploy
         force: true,      // dist files are ignored, force to push them too
     }
-    // everything in public/ should be deployed
+
+    // match just on public index.html
+    var condition = function (file) {
+        return (file.relative === 'index.html');
+    }  
+
+    // everything in public/ should be deployed, except the src files
     return gulp.src(['./public/**', '!**/src/**'])
+        // for index.html insert the django template stuff and modify paths to point to static files
+        .pipe(gulpif(condition, replace(/((?:src|href)=)"(\/(?:lib|dist)\/\S*.\S*)"/g, '$1{% static \'$2\' %}')))
+        .pipe(gulpif(condition, replace('<!--DJANGO_TAG-->', '{% load static %}')))
         .pipe(ghPages(options));
 });
 
@@ -109,6 +120,8 @@ gulp.task('inject', ['scripts', 'cssNano'], function(){
 	var injectLocal = gulp.src([
 		'./public/dist/app.css',
 		'./public/dist/app.js',
+        './public/lib/leaflet-control-bar-master/src/L.Control.Bar.css',
+        './public/lib/leaflet-control-bar-master/src/L.Control.Bar.js',
 	], { read: false });
 
 	var injectLocalOptions = {
