@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import json
+import os
 
 try:
     from setuptools import setup
