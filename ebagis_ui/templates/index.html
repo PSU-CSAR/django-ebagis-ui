@@ -74,7 +74,10 @@
 
     <script>
         var appConfig = {
-            'restURL': 'https://test.ebagis.geog.pdx.edu/api/rest'
+            'restRoot: 'api/rest',
+            get restURL() {
+                return 'https://' + location.hostname + this.restRoot;
+            }
         };
     </script>
 
