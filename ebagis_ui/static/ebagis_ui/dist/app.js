@@ -219,7 +219,7 @@ var UserProfileClass = (function () {
         // setup our API service
         // first arg is the base URL of the server API
         // second arg is a boolean of whether to use django sessions or not
-        this.api.initialize('https://test.ebagis.geog.pdx.edu/api/rest/account', false);
+        //this.api.initialize(window.appConfig.urlBase + '/api/rest/account', false);
         // run authenticationStatus the first time to determine initial
         // value for this.authenticated
         this.authenticationStatus(true).then(function () {
@@ -389,10 +389,10 @@ var ebagisAPI = (function () {
         this.$state = state;
         // Change this to point to your Django REST Auth API
         // e.g. /api/rest-auth  (DO NOT INCLUDE ENDING SLASH)
-        this.API_URL = 'https://test.ebagis.geog.pdx.edu/api/rest/account',
-            // Set use_session to true to use Django sessions to store security token.
-            // Set use_session to false to store the security token locally and transmit it as a custom header.
-            this.use_session = false;
+        this.API_URL = window.appConfig.urlBase + 'api/rest/account';
+        // Set use_session to true to use Django sessions to store security token.
+        // Set use_session to false to store the security token locally and transmit it as a custom header.
+        this.use_session = false;
     }
     ebagisAPI.prototype.request = function (args) {
         // uncomment next line for request tracing
