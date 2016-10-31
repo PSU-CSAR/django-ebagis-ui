@@ -76,7 +76,7 @@
         var appConfig = {
             'restRoot': 'api/rest',
             get restURL() {
-                return 'https://' + location.hostname + this.restRoot;
+                return 'https://' + location.hostname + '/' + this.restRoot;
             }
         };
     </script>
