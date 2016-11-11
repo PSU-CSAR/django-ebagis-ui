@@ -45,26 +45,34 @@ gulp.task('_bump-packages', function() {
 });
 
 // bump version on all files
-gulp.task('bump-version', ['_bump-packages', '_bump-version.json'])
+gulp.task('bump-version', ['_bump-packages', '_bump-version.json']);
 
-// use this task to build and push dist/ to a
-// deployment branch for inclusion in other projects
-gulp.task('deploy', ['bump-version', 'build'], function() {
-    var options = {
-        branch: 'deploy', // deploy branch is named deploy
-        force: true,      // dist files are ignored, force to push them too
-    }
-
+gulp.task('deploy-build', function() {
     // match just on public index.html
     var condition = function (file) {
         return (file.relative === 'index.html');
     }  
 
     // everything in public/ should be deployed, except the src files
-    return gulp.src(['./public/**', '!**/src/**'])
+    return gulp.src(['./public/**', '!./public/src/**'])
         // for index.html insert the django template stuff and modify paths to point to static files
-        .pipe(gulpif(condition, replace(/((?:src|href)=)"(\/(?:lib|dist)\/\S*.\S*)"/g, '$1{% static \'$2\' %}')))
+        .pipe(gulpif(condition, replace(/((?:src|href)=)"\/((?:lib|dist)\/\S*.\S*)"/g, '$1{% static \'ebagis_ui/$2\' %}')))
         .pipe(gulpif(condition, replace('<!--DJANGO_TAG-->', '{% load static %}')))
+        .pipe(gulpif(condition, replace('\'restRoot\': \'\S*\'', '\'restURL\': \'{{ REST_URL }}\'')))
+        .pipe(gulpif(condition, replace('\'restDomain\': \'\S*\'', '\'restDomain\': location.hostname')))
+        .pipe(gulp.dest('./django/ebagis_ui/static/ebagis_ui'));
+});
+
+// use this task to build and push dist/ to a
+// deployment branch for inclusion in other projects
+gulp.task('deploy', ['bump-version', 'build', 'deploy-build'], function() {
+    var options = {
+        branch: 'deploy', // deploy branch is named deploy
+        force: true,      // dist files are ignored, force to push them too
+    }
+
+    // everything in public/ should be deployed, except the src files
+    return gulp.src(['./django/**'])
         .pipe(ghPages(options));
 });
 

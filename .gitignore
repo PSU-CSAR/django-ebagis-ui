@@ -1,6 +1,7 @@
 ## dist files
 # files recreated by build process
 */dist/*
+django/ebagis_ui/static/ebagis_ui
 # a directory created by gulp-gh-pages for caching deployed files
 .publish/
 

@@ -71,6 +71,17 @@
     <script src="bower_components/json3/lib/json3.min.js"></script>
     <![endif]-->
 
+
+    <script>
+        var appConfig = {
+            'restRoot': 'api/rest',
+            'restDomain': 'test.ebagis.geog.pdx.edu',
+            get restURL() {
+                return 'https://' + this.restDomain + '/' + this.restRoot;
+            }
+        };
+    </script>
+
     <!-- bower:js -->
     <script src="/lib/jquery/dist/jquery.js"></script>
     <script src="/lib/angular/angular.js"></script>
