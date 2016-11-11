@@ -117,7 +117,7 @@ app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', functio
     })
 
     .state("verifyEmail", {
-        url: '/account/verifyEmail/{emailVerificationToken:[0-9A-Za-z]{1,65}}',
+        url: '/account/verifyEmail/{emailVerificationToken:[^/]{1,65}}',
         templateUrl: 'app-templates/app/partial/account/verifyemail.html',
         controller: 'VerifyEmailController',
         resolve: {
@@ -139,7 +139,7 @@ app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', functio
     })
 
     .state("account", {
-        url: '/account/',
+        url: '/account',
         templateUrl: 'app-templates/app/partial/account/account.html',
         resolve: {
             auth: auth.auth,
@@ -272,7 +272,7 @@ class UserProfileClass {
         // setup our API service
         // first arg is the base URL of the server API
         // second arg is a boolean of whether to use django sessions or not
-        this.api.initialize('https://test.ebagis.geog.pdx.edu/api/rest/account', false);
+        //this.api.initialize(window.appConfig.urlBase + '/api/rest/account', false);
         // run authenticationStatus the first time to determine initial
         // value for this.authenticated
         this.authenticationStatus(true).then(function() {
@@ -382,6 +382,7 @@ class UserProfileClass {
             });
         }).catch(function(err) {
             console.log(err);
+            return err;
         });
     }
 
@@ -425,7 +426,6 @@ app.controller('UserProfileController', ['$scope', 'ebagisAPI', 'Validate', 'Use
     $scope.model = {'first_name':'','last_name':'','email':''};
     $scope.complete = false;
    
-    console.log(UserProfile.data);
     $scope.model = UserProfile.data;
 
     $scope.updateProfile = function(formData, model){
@@ -462,7 +462,7 @@ class ebagisAPI {
 
         // Change this to point to your Django REST Auth API
         // e.g. /api/rest-auth  (DO NOT INCLUDE ENDING SLASH)
-        this.API_URL = 'https://test.ebagis.geog.pdx.edu/api/rest/account',
+        this.API_URL = window.appConfig.restURL + '/account';
         // Set use_session to true to use Django sessions to store security token.
         // Set use_session to false to store the security token locally and transmit it as a custom header.
         this.use_session = false;
@@ -535,12 +535,14 @@ class ebagisAPI {
         api.$cookies.remove('token');
     }
 
-    register(username, password1, password2, email, more) {
+    register(firstName, lastName, username, password1, password2, email, more) {
         var data = {
-            'username':username,
-            'password1':password1,
-            'password2':password2,
-            'email':email,
+            'first_name': firstName,
+            'last_name': lastName,
+            'username': username,
+            'password1': password1,
+            'password2': password2,
+            'email': email,
             'activation_url': this.$state.href('verifyEmail').replace(/\/+/g, "/"),
         }
         data = angular.extend(data, more);
@@ -551,10 +553,40 @@ class ebagisAPI {
         });
     }
 
+//    login(username, password) {
+//        var api = this;
+//        delete api.$http.defaults.headers.common.Authorization;
+//        api.$cookies.remove('token');
+//
+//        return new Promise(function(resolve, reject) {
+//            api.request({
+//                'method': "POST",
+//                'url': "/login/",
+//                'data':{
+//                    'username':username,
+//                    'password':password
+//                }
+//            })
+//            
+//            .success(angular.bind(api, function(data, status, headers, config) {
+//                if (!api.use_session) {
+//                    api.$http.defaults.headers.common.Authorization = 'Token ' + data.key;
+//                    api.$cookies.put("token", data.key);
+//                }
+//                resolve(data, status);
+//            }))
+//            
+//            .error(angular.bind(api, function(data, status, headers, config) {
+//                reject(data, status, headers, config);
+//            }));
+//        });
+//    }
+
     login(username, password) {
         var api = this;
         delete api.$http.defaults.headers.common.Authorization;
         api.$cookies.remove('token');
+
         return api.request({
             'method': "POST",
             'url': "/login/",
@@ -567,6 +599,9 @@ class ebagisAPI {
                 api.$http.defaults.headers.common.Authorization = 'Token ' + data.key;
                 api.$cookies.put("token", data.key);
             }
+            return data;
+        }, function(data) {
+            return data;
         });
     }
 
@@ -662,12 +697,14 @@ app.controller('LoginController', ['$scope', '$state', 'Validate', 'UserProfile'
         
         if (!formData.$invalid) {
             UserProfile.login($scope.model.username, $scope.model.password)
-            .then(function() {
-                // successful login so redirect to the home page
-                $state.go('home');
-            }).catch(function(err) {
-                    // error case
-                    $scope.errors = err;
+            .then(function() {  
+                if (UserProfile.getAuthenticated()) {
+                    $state.go('home');
+                } else {
+                    $scope.$apply(function() {
+                        $scope.errors = {'non_field_errors':['The provided username and/or password is incorrect.']}; 
+                    });
+                }
             });
         }
     }
@@ -701,7 +738,13 @@ app.controller('MainController', ['$scope', '$cookies', '$location', 'ebagisAPI'
     }
     
     $scope.register = function(){
-      ebagisAPI.register(prompt('Username'),prompt('Password'),prompt('Email'))
+      ebagisAPI.register(
+          prompt('First Name'),
+          prompt('Last Name'),
+          prompt('Username'),
+          prompt('Password'),
+          prompt('Email')
+      )
       .then(handleSuccess,handleError);
     }
     
@@ -758,20 +801,79 @@ app.controller('MainController', ['$scope', '$cookies', '$location', 'ebagisAPI'
 
 class MapClass {
     
-    constructor() {
+    constructor(UserProfile) {
         this.map = L.map('map').setView([40, -99], 4);
+        this.tokenval = UserProfile.api.$cookies.get('token');
+        this.sortState = "ascending";
+
+        // add control layer
+        this.controlBar = L.control.bar('bar', {
+            position: 'bottom',
+            visible: false,
+        });
+        this.map.addControl(this.controlBar);
+
+        // load a tile layer
+        this.baselayer = L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        {
+            attribution: 'Tiles by <a href="http://mapc.org">MAPC</a>',
+        }).addTo(this.map);
+
+        this.defaultStyle = {
+            "color": "#b20000",
+            "weight": 0,
+            "fillOpacity": .75
+        };
+
+        this.highlightStyle = {
+            "fillColor": "#0000b2",
+            "fillOpacity": "8",
+        };
+
+        // request for the aoi names
+        jQuery.ajax({
+            'type': 'GET',
+            'url': window.appConfig.restURL + '/aois/?format=geojson',
+            'datatype': 'json',
+            'headers':  {'Authorization': 'Token ' + this.tokenval},
+            'success': function(data) { 
+                this.aoi_names = new Array();
+                this.geojson_layer = L.geoJson(data, {
+                    onEachFeature: function(feature,layer){
+                        layer.bindPopup(feature.properties.name);
+                    },
+                    style: this.defaultStyle
+                }).addTo(this.map);
+                //console.log(geojson_layer.getBounds());
+                this.map.fitBounds(geojson_layer.getBounds(), {"animate":true});
+                L.control.scale().addTo(this.map);
+                // console.log(data.features); 
+            }
+        });
+    
+        this.map.on('moveend', function(event){
+            aoi_names = new Array();
+            $("#feature-list tbody").empty();
+            this.geojson_layer.eachLayer(function (layer) {      
+                if (this.map.getBounds().intersects(layer.getLatLngs())) {
+                   aoi_names.push(layer.feature.properties.name);
+                }
+            });
+            addFeatureRows(); 
+        });
+
     }
 }
 
-app.service("Map", [MapClass]);
+app.service("Map", ['UserProfile', MapClass]);
 
 app.controller('MapController', ['$scope', 'UserProfile', 'Map', function ($scope, UserProfile, Map) {
     $scope.user = UserProfile.data;
-    var aoi_names;
-    var geojson_layer; 
-    var tokenval = UserProfile.api.$cookies.get('token');
-    var sortState = "ascending";
-    var map = Map.map
+    var geojson_layer = Map.geojson_layer; 
+    var aoi_names = Map.aoi_names;
+    var tokenval = Map.tokenval;
+    var sortState = Map.sortState;
+    var map = Map.map;
 
     // from http://stackoverflow.com/questions/8996963/how-to-perform-case-insensitive-sorting-in-javascript
     function insensitive(s1, s2) {
@@ -826,72 +928,28 @@ app.controller('MapController', ['$scope', 'UserProfile', 'Map', function ($scop
         return content + "</div>";
     } 
 
-    // add control layer
-    var controlBar = L.control.bar('bar', {
-        position: 'bottom',
-        visible: false,
-    });
-    map.addControl(controlBar);
-
-    // load a tile layer
-    var baselayer = L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    {
-        attribution: 'Tiles by <a href="http://mapc.org">MAPC</a>',
-    }).addTo(map);
-
-    var defaultStyle = {
-        "color": "#b20000",
-        "weight": 0,
-        "fillOpacity": .75
-    };
-
-    var highlightStyle = {
-        "fillColor": "#0000b2",
-        "fillOpacity": "8",
-    };
-
-    // request for the aoi names
-    jQuery.ajax({
-      'type': 'GET',
-      'url': 'https://test.ebagis.geog.pdx.edu/api/rest/aois/?format=geojson',
-      'datatype': 'json',
-      'headers':  {'Authorization': 'Token ' + tokenval},
-      'success': function(data) { 
-        aoi_names = new Array();
-        geojson_layer = L.geoJson(data, {
-            onEachFeature: function(feature,layer){
-              layer.bindPopup(feature.properties.name);
-            },
-            style: defaultStyle
-        }).addTo(map);
-        //console.log(geojson_layer.getBounds());
-        map.fitBounds(geojson_layer.getBounds(), {"animate":true});
-        L.control.scale().addTo(map);
-        // console.log(data.features); 
-      }
-    });
 
 
     $(document).on("click", ".feature-row", function(event){
       var value = this.getAttribute('value'); 
       var aoiname = ' ';
-      geojson_layer.eachLayer(function (layer) {  
+      Map.geojson_layer.eachLayer(function (layer) {  
           //console.log('this.value ' + value);
           if(layer.feature.properties.name == value) { 
           //console.log('if: ' + layer.feature.properties.name); 
-              layer.setStyle(highlightStyle) 
+              layer.setStyle(Map.highlightStyle) 
           layer.bringToFront();
           //console.log(layer.feature.properties);
           aoiname = layer.feature.properties.url;
           aoiname = aoiname.substring(0, aoiname.indexOf('?'));
           //console.log(aoiname);
-          map.fitBounds(layer.getBounds(), {
+          Map.map.fitBounds(layer.getBounds(), {
               "maxZoom": 9,
               "animate": true,
           });
           } else {
-              geojson_layer.resetStyle(layer);
-              controlBar.hide();
+              Map.geojson_layer.resetStyle(layer);
+              Map.controlBar.hide();
           } 
       });
 
@@ -903,40 +961,30 @@ app.controller('MapController', ['$scope', 'UserProfile', 'Map', function ($scop
         'headers':  {'Authorization': 'Token ' + tokenval},
         'success': function(data) { 
           //console.log(data);
-          controlBar.setContent(formatJSON(data));
+          Map.controlBar.setContent(formatJSON(data));
          // console.log(r(data));
-         setTimeout(function(){ controlBar.show() }, 500); 
+         setTimeout(function(){ Map.controlBar.show() }, 500); 
         }
       });
     });
 
-    map.on('moveend', function(event){
-        aoi_names = new Array();
-        $("#feature-list tbody").empty();
-        geojson_layer.eachLayer(function (layer) {      
-          if (map.getBounds().intersects(layer.getLatLngs())) {
-           aoi_names.push(layer.feature.properties.name);
-          }
-        });
-        addFeatureRows(); 
-    });
 
     $('#sort-btn').on('click', function(event){
-        sortState = 'descending';
+        Map.sortState = 'descending';
         addFeatureRows();
         $('.panel-body').empty();
         $('.panel-body').append('<div class="row"><input type="text" class="form-control search" placeholder="Filter" /><button type="button" class="btn sort asc" data-sort="feature-name" id="sort-btndesc"><i class="fa fa-sort-alpha-desc" aria-hidden="true"></i> Sort</button></div>');
     });
 
     $(document).on('click', '#sort-btndesc', function(){
-        sortState = 'ascending';
+        Map.sortState = 'ascending';
         addFeatureRows();
         $('.panel-body').empty();
         $('.panel-body').append('<div class="row"><input type="text" class="form-control search" placeholder="Filter" /><button type="button" class="btn sort" data-sort="feature-name" id="sort-btnasc"><i class="fa fa-sort-alpha-asc" aria-hidden="true"></i> Sort</button></div>');
     });
 
     $(document).on('click', '#sort-btnasc', function(){
-        sortState = 'descending';
+        Map.sortState = 'descending';
         addFeatureRows();
         $('.panel-body').empty();
         $('.panel-body').append('<div class="row"><input type="text" class="form-control search" placeholder="Filter" /><button type="button" class="btn sort" data-sort="feature-name" id="sort-btndesc"><i class="fa fa-sort-alpha-desc" aria-hidden="true"></i> Sort</button></div>');
@@ -1044,13 +1092,26 @@ app.controller('RestrictedController', function ($scope, $location) {
   });
 
 app.controller('RegisterController', function ($scope, ebagisAPI, Validate) {
-    $scope.model = {'username':'','password':'','email':''};
+    $scope.model = {
+        'firstName': '',
+        'lastName': '',
+        'username': '',
+        'password': '',
+        'email': ''
+    };
     $scope.complete = false;
-    $scope.register = function(formData){
+    $scope.register = function(formData) {
       $scope.errors = [];
       Validate.form_validation(formData,$scope.errors);
-      if(!formData.$invalid){
-        ebagisAPI.register($scope.model.username,$scope.model.password1,$scope.model.password2,$scope.model.email)
+      if (!formData.$invalid) {
+        ebagisAPI.register(
+            $scope.model.firstName,
+            $scope.model.lastName,
+            $scope.model.username,
+            $scope.model.password1,
+            $scope.model.password2,
+            $scope.model.email
+        )
         .then(function(data){
             // success case
             $scope.$apply(function() {
