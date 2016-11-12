@@ -10,15 +10,18 @@ Installation
 
 Install the development version via pip:
 
-    pip install https://github.com/PSU-CSAR/django-ebagis-ui/zipball/master 
+    pip install https://github.com/PSU-CSAR/ebagis-ui/zipball/deploy 
 
-And then add it to your Django `INSTALLED_APPS`:
+Add it to your Django `INSTALLED_APPS`:
 
     INSTALLED_APPS = (
         # ...
         'ebagis_ui',
     )
 
+And then collect the static assets:
+
+    python manage.py collectstatic
 
 Note that django-ebagis-ui requires django-ebagis.
 
@@ -26,25 +29,15 @@ Note that django-ebagis-ui requires django-ebagis.
 Updating
 --------
 
-Updating the version of ebagis in the repo requires cloning the git repo and
-and running some git commands locally. If you don't have a local copy, first,
+If revisions have been made to the ebagis-ui code, the changes can be deployed
+into this package using the `gulp deploy` command. This will build the deploy
+files, templatize the index.html for django, copy them into this source tree,
+and then push everything to the deploy branch on github.
 
-    git clone git@github.com:PSU-CSAR/django-ebagis-ui.git
+To install the update, simply just use the install commands above, but remember
+to tell `pip` to upgrade:
 
-Then you'll need to add the remotes for the ebagis_ui repo:
+    pip install -U https://github.com/PSU-CSAR/ebagis-ui/zipball/deploy
 
-    git remote add ebagis_ui git@github.com:PSU-CSAR/ebagis-ui.git
-
-Next, fetch the ebagis_ui branch and create a branch with it set as the upstream:
-
-    git fetch ebagis_ui
-    git checkout -b ebagis_ui ebagis_ui/deploy
-
-You can now merge the ebagis_ui subtree into master:
-
-    git checkout master
-    git read-tree --prefix=ebagis_ui/static/ebagis_ui -u ebagis_ui
-
-
-
+Don't forget to re-collect the static assets to pull in any changes from the packaage.
 
