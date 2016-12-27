@@ -553,35 +553,6 @@ class ebagisAPI {
         });
     }
 
-//    login(username, password) {
-//        var api = this;
-//        delete api.$http.defaults.headers.common.Authorization;
-//        api.$cookies.remove('token');
-//
-//        return new Promise(function(resolve, reject) {
-//            api.request({
-//                'method': "POST",
-//                'url': "/login/",
-//                'data':{
-//                    'username':username,
-//                    'password':password
-//                }
-//            })
-//            
-//            .success(angular.bind(api, function(data, status, headers, config) {
-//                if (!api.use_session) {
-//                    api.$http.defaults.headers.common.Authorization = 'Token ' + data.key;
-//                    api.$cookies.put("token", data.key);
-//                }
-//                resolve(data, status);
-//            }))
-//            
-//            .error(angular.bind(api, function(data, status, headers, config) {
-//                reject(data, status, headers, config);
-//            }));
-//        });
-//    }
-
     login(username, password) {
         var api = this;
         delete api.$http.defaults.headers.common.Authorization;
@@ -799,198 +770,6 @@ app.controller('MainController', ['$scope', '$cookies', '$location', 'ebagisAPI'
 
 }]);
 
-class MapClass {
-    
-    constructor(UserProfile) {
-        this.map = L.map('map').setView([40, -99], 4);
-        this.tokenval = UserProfile.api.$cookies.get('token');
-        this.sortState = "ascending";
-
-        // add control layer
-        this.controlBar = L.control.bar('bar', {
-            position: 'bottom',
-            visible: false,
-        });
-        this.map.addControl(this.controlBar);
-
-        // load a tile layer
-        this.baselayer = L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        {
-            attribution: 'Tiles by <a href="http://mapc.org">MAPC</a>',
-        }).addTo(this.map);
-
-        this.defaultStyle = {
-            "color": "#b20000",
-            "weight": 0,
-            "fillOpacity": .75
-        };
-
-        this.highlightStyle = {
-            "fillColor": "#0000b2",
-            "fillOpacity": "8",
-        };
-
-        // request for the aoi names
-        jQuery.ajax({
-            'type': 'GET',
-            'url': window.appConfig.restURL + '/aois/?format=geojson',
-            'datatype': 'json',
-            'headers':  {'Authorization': 'Token ' + this.tokenval},
-            'success': function(data) { 
-                this.aoi_names = new Array();
-                this.geojson_layer = L.geoJson(data, {
-                    onEachFeature: function(feature,layer){
-                        layer.bindPopup(feature.properties.name);
-                    },
-                    style: this.defaultStyle
-                }).addTo(this.map);
-                //console.log(geojson_layer.getBounds());
-                this.map.fitBounds(geojson_layer.getBounds(), {"animate":true});
-                L.control.scale().addTo(this.map);
-                // console.log(data.features); 
-            }
-        });
-    
-        this.map.on('moveend', function(event){
-            aoi_names = new Array();
-            $("#feature-list tbody").empty();
-            this.geojson_layer.eachLayer(function (layer) {      
-                if (this.map.getBounds().intersects(layer.getLatLngs())) {
-                   aoi_names.push(layer.feature.properties.name);
-                }
-            });
-            addFeatureRows(); 
-        });
-
-    }
-}
-
-app.service("Map", ['UserProfile', MapClass]);
-
-app.controller('MapController', ['$scope', 'UserProfile', 'Map', function ($scope, UserProfile, Map) {
-    $scope.user = UserProfile.data;
-    var geojson_layer = Map.geojson_layer; 
-    var aoi_names = Map.aoi_names;
-    var tokenval = Map.tokenval;
-    var sortState = Map.sortState;
-    var map = Map.map;
-
-    // from http://stackoverflow.com/questions/8996963/how-to-perform-case-insensitive-sorting-in-javascript
-    function insensitive(s1, s2) {
-        var s1lower = s1.toLowerCase();
-        var s2lower = s2.toLowerCase();
-        return s1lower > s2lower? 1 : (s1lower < s2lower? -1 : 0);
-    }
-
-    function addFeatureRows() {
-        if (sortState === 'ascending') {
-          aoi_names.sort(insensitive);
-        } else if (sortState === 'descending') {
-          (aoi_names.sort(insensitive)).reverse();
-        }
-        $("#feature-list tbody").empty();
-        for (var i in aoi_names) {
-            var toAdd = '<tr class="feature-row" value="' + aoi_names[i] + '"><td style="vertical-align: middle;"><img width="16px" height="18px" src="water.png"></td><td class="feature-name">' + aoi_names[i] + '</td><td style="vertical-align: middle;"</td></tr>'
-            $("#feature-list tbody").append(toAdd);
-        }
-    }
-
-    function formatJSON(obj, currKey) {
-        var content =  "<div id=\"bar_content\">";
-        function recurse(obj, indent) {
-          var content2 = '';
-          if (obj) {
-              for (var key in obj) {   
-                if (typeof obj[key] === "object") {
-                  var value;
-                  if(obj[key] === null || obj[key] === "")
-                    value = "none";
-                  else
-                    value = '';
-                  //console.log('key: ' + key + ' is of type ' + typeof key + '\n' + 'obj: ' + obj + '\n' + 'obj[key] ' + obj[key]);
-                  content2 += "<div>" + String.fromCharCode(160).repeat(indent) + key + ':  ' + value  + "</div>";
-                  content2 += recurse(obj[key], indent += 4);  
-                } else if (typeof obj[key] !== "function") {
-                    var value;
-                    //console.log('key: ' + key + ' is of type ' + typeof key + '\n' + 'obj: ' + obj + '\n' + 'obj[key] ' + obj[key]);
-                    if ((typeof obj[key] === 'Array' && obj[key].length === 0) || obj[key] === "" || obj[key] === null) {
-                      value = "none";
-                    } else {
-                      value = obj[key];
-                    }
-                    content2 += "<div>" + String.fromCharCode(160).repeat(indent) + key + ':  ' + value +  "</div>";
-                }
-              }
-          }
-          return content2;
-        }
-        content += recurse(obj, 0);
-        return content + "</div>";
-    } 
-
-
-
-    $(document).on("click", ".feature-row", function(event){
-      var value = this.getAttribute('value'); 
-      var aoiname = ' ';
-      Map.geojson_layer.eachLayer(function (layer) {  
-          //console.log('this.value ' + value);
-          if(layer.feature.properties.name == value) { 
-          //console.log('if: ' + layer.feature.properties.name); 
-              layer.setStyle(Map.highlightStyle) 
-          layer.bringToFront();
-          //console.log(layer.feature.properties);
-          aoiname = layer.feature.properties.url;
-          aoiname = aoiname.substring(0, aoiname.indexOf('?'));
-          //console.log(aoiname);
-          Map.map.fitBounds(layer.getBounds(), {
-              "maxZoom": 9,
-              "animate": true,
-          });
-          } else {
-              Map.geojson_layer.resetStyle(layer);
-              Map.controlBar.hide();
-          } 
-      });
-
-      // request for the detailed view data
-      jQuery.ajax({
-        'type': 'GET',
-        'url': aoiname,
-        'datatype': 'json',
-        'headers':  {'Authorization': 'Token ' + tokenval},
-        'success': function(data) { 
-          //console.log(data);
-          Map.controlBar.setContent(formatJSON(data));
-         // console.log(r(data));
-         setTimeout(function(){ Map.controlBar.show() }, 500); 
-        }
-      });
-    });
-
-
-    $('#sort-btn').on('click', function(event){
-        Map.sortState = 'descending';
-        addFeatureRows();
-        $('.panel-body').empty();
-        $('.panel-body').append('<div class="row"><input type="text" class="form-control search" placeholder="Filter" /><button type="button" class="btn sort asc" data-sort="feature-name" id="sort-btndesc"><i class="fa fa-sort-alpha-desc" aria-hidden="true"></i> Sort</button></div>');
-    });
-
-    $(document).on('click', '#sort-btndesc', function(){
-        Map.sortState = 'ascending';
-        addFeatureRows();
-        $('.panel-body').empty();
-        $('.panel-body').append('<div class="row"><input type="text" class="form-control search" placeholder="Filter" /><button type="button" class="btn sort" data-sort="feature-name" id="sort-btnasc"><i class="fa fa-sort-alpha-asc" aria-hidden="true"></i> Sort</button></div>');
-    });
-
-    $(document).on('click', '#sort-btnasc', function(){
-        Map.sortState = 'descending';
-        addFeatureRows();
-        $('.panel-body').empty();
-        $('.panel-body').append('<div class="row"><input type="text" class="form-control search" placeholder="Filter" /><button type="button" class="btn sort" data-sort="feature-name" id="sort-btndesc"><i class="fa fa-sort-alpha-desc" aria-hidden="true"></i> Sort</button></div>');
-    });
-}]);
-
 app.controller('PasswordChangeController', function ($scope, ebagisAPI, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
     $scope.complete = false;
@@ -1012,9 +791,9 @@ app.controller('PasswordChangeController', function ($scope, ebagisAPI, Validate
 
 app.controller('PasswordResetController', function ($scope, $state, $timeout, ebagisAPI, Validate) {
     $scope.processForm = function(email) {
-        //$scope.errors = [];
-        //Validate.form_validation(email, $scope.errors);
-        //if (!$scope.email.$invalid) {
+        $scope.errors = [];
+        Validate.form_validation(email, $scope.errors);
+        if (!$scope.email.$invalid) {
             console.log($scope.email);
             ebagisAPI.resetPassword($scope.email)
             .then(function(data) {
@@ -1031,35 +810,9 @@ app.controller('PasswordResetController', function ($scope, $state, $timeout, eb
                     $scope.errors = data;
                 });
             });
-        //}
+        }
     };
 });
-
-/*
-app.controller('PasswordResetController', function ($scope, $state, $timeout, ebagisAPI, Validate) {
-    $scope.model = {'email': ''};
-    $scope.complete = false;
-    $scope.resetPassword = function(formData) {
-        $scope.errors = [];
-        Validate.form_validation(formData, $scope.errors);
-        if (!formData.$invalid) {
-            ebagisAPI.resetPassword($scope.model.email)
-            .then(function(data) {
-                // success case
-                $scope.$apply(function() {
-                    $scope.complete = true;
-                });
-                $timeout(function(){$state.go("login");}, 3000);
-            },function(data){
-                // error case
-                $scope.$apply(function() {
-                    $scope.errors = data;
-                });
-            });
-        }
-    }
-});
-*/
 
 app.controller('PasswordResetConfirmController', function ($scope, $stateParams, $state, $timeout, ebagisAPI, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
