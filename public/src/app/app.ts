@@ -419,7 +419,7 @@ app.run(["$rootScope", "Auth", "$state", "UserProfile", function ($rootScope, Au
 }])
 
 app.controller('RootController', ['$scope', '$state', function ($scope, $state) {
-    $state.go("home");
+    $state.go("account");
 }]);
 
 app.controller('UserProfileController', ['$scope', 'ebagisAPI', 'Validate', 'UserProfile', function ($scope, ebagisAPI, Validate, UserProfile) {
@@ -670,7 +670,7 @@ app.controller('LoginController', ['$scope', '$state', 'Validate', 'UserProfile'
             UserProfile.login($scope.model.username, $scope.model.password)
             .then(function() {  
                 if (UserProfile.getAuthenticated()) {
-                    $state.go('home');
+                    $state.go('account');
                 } else {
                     $scope.$apply(function() {
                         $scope.errors = {'non_field_errors':['The provided username and/or password is incorrect.']}; 
