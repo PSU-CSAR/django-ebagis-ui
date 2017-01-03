@@ -1,6 +1,6 @@
 {
   "name": "ebagis",
-  "version": "0.0.21",
+  "version": "0.0.23",
   "description": "SPA frontend for the PSU CSAR eBAGIS project",
   "main": "server.js",
   "scripts": {
