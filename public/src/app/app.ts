@@ -147,6 +147,16 @@ app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', functio
         }
     })
 
+    .state("changePassword", {
+        url: '/account/changepassword',
+        templateUrl: 'app-templates/app/partial/account/passwordchange.html',
+        controller: 'PasswordChangeController',
+        resolve: {
+            auth: auth.auth,
+            userProfile: "UserProfile",
+        }
+    })
+
     .state("root", {
         url: '/',
         controller: 'RootController',
@@ -770,24 +780,31 @@ app.controller('MainController', ['$scope', '$cookies', '$location', 'ebagisAPI'
 
 }]);
 
-app.controller('PasswordChangeController', function ($scope, ebagisAPI, Validate) {
+app.controller('PasswordChangeController', function ($scope, $state, $timeout, ebagisAPI, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
     $scope.complete = false;
     $scope.changePassword = function(formData){
-      $scope.errors = [];
-      Validate.form_validation(formData,$scope.errors);
-      if(!formData.$invalid){
-        ebagisAPI.changePassword($scope.model.new_password1, $scope.model.new_password2)
-        .then(function(data){
-            // success case
-            $scope.complete = true;
-        },function(data){
-            // error case
-            $scope.errors = data;
-        });
-      }
+        $scope.errors = [];
+        Validate.form_validation(formData,$scope.errors);
+        if(!formData.$invalid){
+            ebagisAPI.changePassword($scope.model.new_password1, $scope.model.new_password2)
+            .then(function(data){
+                // success case
+                console.log(data);
+                $scope.$apply(function() {
+                    $scope.complete = true;
+                });
+                $timeout(function(){$state.go("login");}, 8000);
+            }, function(data){
+                // error case
+                console.log(data);
+                $scope.$apply(function () {
+                    $scope.errors = data;
+                });
+            });
+        }
     }
-  });
+});
 
 app.controller('PasswordResetController', function ($scope, $state, $timeout, ebagisAPI, Validate) {
     $scope.processForm = function(email) {
@@ -802,7 +819,7 @@ app.controller('PasswordResetController', function ($scope, $state, $timeout, eb
                 $scope.$apply(function() {
                     $scope.message = data.success;
                 });
-                $timeout(function(){$state.go("login");}, 3000);
+                $timeout(function(){$state.go("login");}, 8000);
             }, function(data) {
                 // error case
                 console.log(data);
@@ -817,32 +834,36 @@ app.controller('PasswordResetController', function ($scope, $state, $timeout, eb
 app.controller('PasswordResetConfirmController', function ($scope, $stateParams, $state, $timeout, ebagisAPI, Validate) {
     $scope.model = {'new_password1':'','new_password2':''};
     $scope.complete = false;
-    $scope.confirmReset = function(formData){
-      $scope.errors = [];
-      Validate.form_validation(formData,$scope.errors);
-      if(!formData.$invalid){
-        ebagisAPI.confirmReset($stateParams['userToken'], $stateParams['passwordResetToken'], $scope.model.new_password1, $scope.model.new_password2)
-        .then(function(data){
-            // success case
-            $scope.$apply(function() {
-                $scope.complete = true;
+    $scope.confirmReset = function(formData) {
+        $scope.errors = [];
+        Validate.form_validation(formData,$scope.errors);
+        if(!formData.$invalid) {
+            ebagisAPI.confirmReset(
+                    $stateParams['userToken'],
+                    $stateParams['passwordResetToken'],
+                    $scope.model.new_password1,
+                    $scope.model.new_password2,
+            ).then(function(data) {
+                // success case
+                $scope.$apply(function() {
+                    $scope.complete = true;
+                });
+                $timeout(function(){$state.go("login");}, 8000);
+            }, function(data) {
+                // error case
+                $scope.$apply(function() {
+                    $scope.errors = data;
+                });
             });
-            $timeout(function(){$state.go("login");}, 3000);
-        },function(data){
-            // error case
-            $scope.$apply(function() {
-                $scope.errors = data;
-            });
-        });
-      }
+        }
     }
-  });
+});
 
 app.controller('RestrictedController', function ($scope, $location) {
     $scope.$on('UserProfile.logged_in', function() {
-      $location.path('/');
+        $location.path('/');
     });
-  });
+});
 
 app.controller('RegisterController', function ($scope, ebagisAPI, Validate) {
     $scope.model = {
@@ -854,31 +875,30 @@ app.controller('RegisterController', function ($scope, ebagisAPI, Validate) {
     };
     $scope.complete = false;
     $scope.register = function(formData) {
-      $scope.errors = [];
-      Validate.form_validation(formData,$scope.errors);
-      if (!formData.$invalid) {
-        ebagisAPI.register(
-            $scope.model.firstName,
-            $scope.model.lastName,
-            $scope.model.username,
-            $scope.model.password1,
-            $scope.model.password2,
-            $scope.model.email
-        )
-        .then(function(data){
-            // success case
-            $scope.$apply(function() {
-                $scope.complete = true;
+        $scope.errors = [];
+        Validate.form_validation(formData,$scope.errors);
+        if (!formData.$invalid) {
+            ebagisAPI.register(
+                $scope.model.firstName,
+                $scope.model.lastName,
+                $scope.model.username,
+                $scope.model.password1,
+                $scope.model.password2,
+                $scope.model.email
+            ).then(function(data) {
+                // success case
+                $scope.$apply(function() {
+                    $scope.complete = true;
+                });
+            }, function(data) {
+                // error case
+                $scope.$apply(function() {
+                    $scope.errors = data;
+                });
             });
-        },function(data){
-            // error case
-            $scope.$apply(function() {
-                $scope.errors = data;
-            });
-        });
-      }
+        }
     }
-  });
+});
 
 app.service('Validate', function Validate() {
     return {
@@ -929,9 +949,9 @@ app.service('Validate', function Validate() {
 });
 
 app.controller('VerifyEmailController', function ($scope, $stateParams, ebagisAPI) {
-    ebagisAPI.verify($stateParams["emailVerificationToken"]).then(function(data){
+    ebagisAPI.verify($stateParams["emailVerificationToken"]).then(function(data) {
         $scope.success = true;
-    },function(data){
+    }, function(data) {
         $scope.failure = false;
     });
-  });
+});
