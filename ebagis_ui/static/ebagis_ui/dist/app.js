@@ -120,6 +120,15 @@ app.config(["$stateProvider", '$urlRouterProvider', '$locationProvider', functio
                 userProfile: "UserProfile"
             }
         })
+            .state("changePassword", {
+            url: '/account/changepassword',
+            templateUrl: 'app-templates/app/partial/account/passwordchange.html',
+            controller: 'PasswordChangeController',
+            resolve: {
+                auth: auth.auth,
+                userProfile: "UserProfile"
+            }
+        })
             .state("root", {
             url: '/',
             controller: 'RootController',
@@ -354,7 +363,7 @@ app.run(["$rootScope", "Auth", "$state", "UserProfile", function ($rootScope, Au
         });
     }]);
 app.controller('RootController', ['$scope', '$state', function ($scope, $state) {
-        $state.go("home");
+        $state.go("account");
     }]);
 app.controller('UserProfileController', ['$scope', 'ebagisAPI', 'Validate', 'UserProfile', function ($scope, ebagisAPI, Validate, UserProfile) {
         $scope.model = { 'first_name': '', 'last_name': '', 'email': '' };
@@ -468,34 +477,6 @@ var ebagisAPI = (function () {
             'data': data
         });
     };
-    //    login(username, password) {
-    //        var api = this;
-    //        delete api.$http.defaults.headers.common.Authorization;
-    //        api.$cookies.remove('token');
-    //
-    //        return new Promise(function(resolve, reject) {
-    //            api.request({
-    //                'method': "POST",
-    //                'url': "/login/",
-    //                'data':{
-    //                    'username':username,
-    //                    'password':password
-    //                }
-    //            })
-    //            
-    //            .success(angular.bind(api, function(data, status, headers, config) {
-    //                if (!api.use_session) {
-    //                    api.$http.defaults.headers.common.Authorization = 'Token ' + data.key;
-    //                    api.$cookies.put("token", data.key);
-    //                }
-    //                resolve(data, status);
-    //            }))
-    //            
-    //            .error(angular.bind(api, function(data, status, headers, config) {
-    //                reject(data, status, headers, config);
-    //            }));
-    //        });
-    //    }
     ebagisAPI.prototype.login = function (username, password) {
         var api = this;
         delete api.$http.defaults.headers.common.Authorization;
@@ -600,7 +581,7 @@ app.controller('LoginController', ['$scope', '$state', 'Validate', 'UserProfile'
                 UserProfile.login($scope.model.username, $scope.model.password)
                     .then(function () {
                     if (UserProfile.getAuthenticated()) {
-                        $state.go('home');
+                        $state.go('account');
                     }
                     else {
                         $scope.$apply(function () {
@@ -677,181 +658,7 @@ app.controller('MainController', ['$scope', '$cookies', '$location', 'ebagisAPI'
             $scope.show_login = true;
         });
     }]);
-var MapClass = (function () {
-    function MapClass(UserProfile) {
-        this.map = L.map('map').setView([40, -99], 4);
-        this.tokenval = UserProfile.api.$cookies.get('token');
-        this.sortState = "ascending";
-        // add control layer
-        this.controlBar = L.control.bar('bar', {
-            position: 'bottom',
-            visible: false
-        });
-        this.map.addControl(this.controlBar);
-        // load a tile layer
-        this.baselayer = L.tileLayer('http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: 'Tiles by <a href="http://mapc.org">MAPC</a>'
-        }).addTo(this.map);
-        this.defaultStyle = {
-            "color": "#b20000",
-            "weight": 0,
-            "fillOpacity": .75
-        };
-        this.highlightStyle = {
-            "fillColor": "#0000b2",
-            "fillOpacity": "8"
-        };
-        // request for the aoi names
-        jQuery.ajax({
-            'type': 'GET',
-            'url': window.appConfig.restURL + '/aois/?format=geojson',
-            'datatype': 'json',
-            'headers': { 'Authorization': 'Token ' + this.tokenval },
-            'success': function (data) {
-                this.aoi_names = new Array();
-                this.geojson_layer = L.geoJson(data, {
-                    onEachFeature: function (feature, layer) {
-                        layer.bindPopup(feature.properties.name);
-                    },
-                    style: this.defaultStyle
-                }).addTo(this.map);
-                //console.log(geojson_layer.getBounds());
-                this.map.fitBounds(geojson_layer.getBounds(), { "animate": true });
-                L.control.scale().addTo(this.map);
-                // console.log(data.features); 
-            }
-        });
-        this.map.on('moveend', function (event) {
-            aoi_names = new Array();
-            $("#feature-list tbody").empty();
-            this.geojson_layer.eachLayer(function (layer) {
-                if (this.map.getBounds().intersects(layer.getLatLngs())) {
-                    aoi_names.push(layer.feature.properties.name);
-                }
-            });
-            addFeatureRows();
-        });
-    }
-    return MapClass;
-}());
-app.service("Map", ['UserProfile', MapClass]);
-app.controller('MapController', ['$scope', 'UserProfile', 'Map', function ($scope, UserProfile, Map) {
-        $scope.user = UserProfile.data;
-        var geojson_layer = Map.geojson_layer;
-        var aoi_names = Map.aoi_names;
-        var tokenval = Map.tokenval;
-        var sortState = Map.sortState;
-        var map = Map.map;
-        // from http://stackoverflow.com/questions/8996963/how-to-perform-case-insensitive-sorting-in-javascript
-        function insensitive(s1, s2) {
-            var s1lower = s1.toLowerCase();
-            var s2lower = s2.toLowerCase();
-            return s1lower > s2lower ? 1 : (s1lower < s2lower ? -1 : 0);
-        }
-        function addFeatureRows() {
-            if (sortState === 'ascending') {
-                aoi_names.sort(insensitive);
-            }
-            else if (sortState === 'descending') {
-                (aoi_names.sort(insensitive)).reverse();
-            }
-            $("#feature-list tbody").empty();
-            for (var i in aoi_names) {
-                var toAdd = '<tr class="feature-row" value="' + aoi_names[i] + '"><td style="vertical-align: middle;"><img width="16px" height="18px" src="water.png"></td><td class="feature-name">' + aoi_names[i] + '</td><td style="vertical-align: middle;"</td></tr>';
-                $("#feature-list tbody").append(toAdd);
-            }
-        }
-        function formatJSON(obj, currKey) {
-            var content = "<div id=\"bar_content\">";
-            function recurse(obj, indent) {
-                var content2 = '';
-                if (obj) {
-                    for (var key in obj) {
-                        if (typeof obj[key] === "object") {
-                            var value;
-                            if (obj[key] === null || obj[key] === "")
-                                value = "none";
-                            else
-                                value = '';
-                            //console.log('key: ' + key + ' is of type ' + typeof key + '\n' + 'obj: ' + obj + '\n' + 'obj[key] ' + obj[key]);
-                            content2 += "<div>" + String.fromCharCode(160).repeat(indent) + key + ':  ' + value + "</div>";
-                            content2 += recurse(obj[key], indent += 4);
-                        }
-                        else if (typeof obj[key] !== "function") {
-                            var value;
-                            //console.log('key: ' + key + ' is of type ' + typeof key + '\n' + 'obj: ' + obj + '\n' + 'obj[key] ' + obj[key]);
-                            if ((typeof obj[key] === 'Array' && obj[key].length === 0) || obj[key] === "" || obj[key] === null) {
-                                value = "none";
-                            }
-                            else {
-                                value = obj[key];
-                            }
-                            content2 += "<div>" + String.fromCharCode(160).repeat(indent) + key + ':  ' + value + "</div>";
-                        }
-                    }
-                }
-                return content2;
-            }
-            content += recurse(obj, 0);
-            return content + "</div>";
-        }
-        $(document).on("click", ".feature-row", function (event) {
-            var value = this.getAttribute('value');
-            var aoiname = ' ';
-            Map.geojson_layer.eachLayer(function (layer) {
-                //console.log('this.value ' + value);
-                if (layer.feature.properties.name == value) {
-                    //console.log('if: ' + layer.feature.properties.name); 
-                    layer.setStyle(Map.highlightStyle);
-                    layer.bringToFront();
-                    //console.log(layer.feature.properties);
-                    aoiname = layer.feature.properties.url;
-                    aoiname = aoiname.substring(0, aoiname.indexOf('?'));
-                    //console.log(aoiname);
-                    Map.map.fitBounds(layer.getBounds(), {
-                        "maxZoom": 9,
-                        "animate": true
-                    });
-                }
-                else {
-                    Map.geojson_layer.resetStyle(layer);
-                    Map.controlBar.hide();
-                }
-            });
-            // request for the detailed view data
-            jQuery.ajax({
-                'type': 'GET',
-                'url': aoiname,
-                'datatype': 'json',
-                'headers': { 'Authorization': 'Token ' + tokenval },
-                'success': function (data) {
-                    //console.log(data);
-                    Map.controlBar.setContent(formatJSON(data));
-                    // console.log(r(data));
-                    setTimeout(function () { Map.controlBar.show(); }, 500);
-                }
-            });
-        });
-        $('#sort-btn').on('click', function (event) {
-            Map.sortState = 'descending';
-            addFeatureRows();
-            $('.panel-body').empty();
-            $('.panel-body').append('<div class="row"><input type="text" class="form-control search" placeholder="Filter" /><button type="button" class="btn sort asc" data-sort="feature-name" id="sort-btndesc"><i class="fa fa-sort-alpha-desc" aria-hidden="true"></i> Sort</button></div>');
-        });
-        $(document).on('click', '#sort-btndesc', function () {
-            Map.sortState = 'ascending';
-            addFeatureRows();
-            $('.panel-body').empty();
-            $('.panel-body').append('<div class="row"><input type="text" class="form-control search" placeholder="Filter" /><button type="button" class="btn sort" data-sort="feature-name" id="sort-btnasc"><i class="fa fa-sort-alpha-asc" aria-hidden="true"></i> Sort</button></div>');
-        });
-        $(document).on('click', '#sort-btnasc', function () {
-            Map.sortState = 'descending';
-            addFeatureRows();
-            $('.panel-body').empty();
-            $('.panel-body').append('<div class="row"><input type="text" class="form-control search" placeholder="Filter" /><button type="button" class="btn sort" data-sort="feature-name" id="sort-btndesc"><i class="fa fa-sort-alpha-desc" aria-hidden="true"></i> Sort</button></div>');
-        });
-    }]);
-app.controller('PasswordChangeController', function ($scope, ebagisAPI, Validate) {
+app.controller('PasswordChangeController', function ($scope, $state, $timeout, ebagisAPI, Validate) {
     $scope.model = { 'new_password1': '', 'new_password2': '' };
     $scope.complete = false;
     $scope.changePassword = function (formData) {
@@ -861,63 +668,45 @@ app.controller('PasswordChangeController', function ($scope, ebagisAPI, Validate
             ebagisAPI.changePassword($scope.model.new_password1, $scope.model.new_password2)
                 .then(function (data) {
                 // success case
-                $scope.complete = true;
+                console.log(data);
+                $scope.$apply(function () {
+                    $scope.complete = true;
+                });
+                $timeout(function () { $state.go("login"); }, 8000);
             }, function (data) {
                 // error case
-                $scope.errors = data;
+                console.log(data);
+                $scope.$apply(function () {
+                    $scope.errors = data;
+                });
             });
         }
     };
 });
 app.controller('PasswordResetController', function ($scope, $state, $timeout, ebagisAPI, Validate) {
     $scope.processForm = function (email) {
-        //$scope.errors = [];
-        //Validate.form_validation(email, $scope.errors);
-        //if (!$scope.email.$invalid) {
-        console.log($scope.email);
-        ebagisAPI.resetPassword($scope.email)
-            .then(function (data) {
-            // success case
-            console.log(data);
-            $scope.$apply(function () {
-                $scope.message = data.success;
-            });
-            $timeout(function () { $state.go("login"); }, 3000);
-        }, function (data) {
-            // error case
-            console.log(data);
-            $scope.$apply(function () {
-                $scope.errors = data;
-            });
-        });
-        //}
-    };
-});
-/*
-app.controller('PasswordResetController', function ($scope, $state, $timeout, ebagisAPI, Validate) {
-    $scope.model = {'email': ''};
-    $scope.complete = false;
-    $scope.resetPassword = function(formData) {
         $scope.errors = [];
-        Validate.form_validation(formData, $scope.errors);
-        if (!formData.$invalid) {
-            ebagisAPI.resetPassword($scope.model.email)
-            .then(function(data) {
+        Validate.form_validation(email, $scope.errors);
+        if (!$scope.email.$invalid) {
+            console.log($scope.email);
+            ebagisAPI.resetPassword($scope.email)
+                .then(function (data) {
                 // success case
-                $scope.$apply(function() {
-                    $scope.complete = true;
+                console.log(data);
+                $scope.$apply(function () {
+                    $scope.message = data.success;
                 });
-                $timeout(function(){$state.go("login");}, 3000);
-            },function(data){
+                $timeout(function () { $state.go("login"); }, 8000);
+            }, function (data) {
                 // error case
-                $scope.$apply(function() {
+                console.log(data);
+                $scope.$apply(function () {
                     $scope.errors = data;
                 });
             });
         }
-    }
+    };
 });
-*/
 app.controller('PasswordResetConfirmController', function ($scope, $stateParams, $state, $timeout, ebagisAPI, Validate) {
     $scope.model = { 'new_password1': '', 'new_password2': '' };
     $scope.complete = false;
@@ -925,13 +714,12 @@ app.controller('PasswordResetConfirmController', function ($scope, $stateParams,
         $scope.errors = [];
         Validate.form_validation(formData, $scope.errors);
         if (!formData.$invalid) {
-            ebagisAPI.confirmReset($stateParams['userToken'], $stateParams['passwordResetToken'], $scope.model.new_password1, $scope.model.new_password2)
-                .then(function (data) {
+            ebagisAPI.confirmReset($stateParams['userToken'], $stateParams['passwordResetToken'], $scope.model.new_password1, $scope.model.new_password2).then(function (data) {
                 // success case
                 $scope.$apply(function () {
                     $scope.complete = true;
                 });
-                $timeout(function () { $state.go("login"); }, 3000);
+                $timeout(function () { $state.go("login"); }, 8000);
             }, function (data) {
                 // error case
                 $scope.$apply(function () {
@@ -959,8 +747,7 @@ app.controller('RegisterController', function ($scope, ebagisAPI, Validate) {
         $scope.errors = [];
         Validate.form_validation(formData, $scope.errors);
         if (!formData.$invalid) {
-            ebagisAPI.register($scope.model.firstName, $scope.model.lastName, $scope.model.username, $scope.model.password1, $scope.model.password2, $scope.model.email)
-                .then(function (data) {
+            ebagisAPI.register($scope.model.firstName, $scope.model.lastName, $scope.model.username, $scope.model.password1, $scope.model.password2, $scope.model.email).then(function (data) {
                 // success case
                 $scope.$apply(function () {
                     $scope.complete = true;
@@ -1034,9 +821,7 @@ app.controller('VerifyEmailController', function ($scope, $stateParams, ebagisAP
 angular.module("app.templates", []).run(["$templateCache", function ($templateCache) {
         $templateCache.put("app-templates/app/authrequired.html", "<p>This is a restricted view.  You must be authenticated to view it.</p>\n");
         $templateCache.put("app-templates/app/restricted.html", "<p>You have attempted to access a restricted page.  Please login to continue.</p>\n<div ng-include=\"\'app-templates/app/login.html\'\"></div>\n");
-        $templateCache.put("app-templates/app/partial/main/404.html", "<p>\n    The resource you are attempting to access could not be found. If you feel you reached this page in error, please contact the site administrator.\n</p>\n");
-        $templateCache.put("app-templates/app/partial/main/home.html", "<!--\n<p>\n    <a ng-hide=\"authenticated\" href=\"#/login\" class=\"btn btn-primary\">Login</a>\n    <a ng-hide=\"authenticated\" href=\"#/passwordReset\" class=\"btn btn-primary\">Send Password Reset</a>\n    <a ng-hide=\"authenticated\" ng-click=\"goConfirmReset()\" class=\"btn btn-primary\">Confirm Password Reset</a>\n</p>\n<p>\n    <a ng-show=\"authenticated\" href=\"#/logout\" class=\"btn btn-primary\">Logout</a>\n    <a ng-hide=\"authenticated\" ng-href=\"#/register\" class=\"btn btn-primary\">Register</a>\n    <a ng-click=\"goVerify()\" class=\"btn btn-primary\">Verify Email</a>\n    <a ng-show=\"authenticated\" href=\"#/passwordChange\" class=\"btn btn-primary\">Change Password</a>\n    <a ng-show=\"authenticated\" href=\"#/userProfile\" class=\"btn btn-primary\">Profile</a>\n    <a href=\"#/authRequired\" class=\"btn btn-primary\">Restricted Page</a>\n</p>\n-->\n");
-        $templateCache.put("app-templates/app/partial/account/account.html", "<div id=\"userProfile_view\" ng-controller=\"UserProfileController\">\n    <div ng-if=\"complete == false\">\n        <form role=\"form\" ng-if=\"authenticated\" name=\"userProfileForm\" ng-submit=\"updateProfile(userProfileForm, model)\" novalidate>\n            <div class=\"form-group\">\n                <label for=\"id_first_name\">First Name</label>\n                <input name=\"first_name\" id=\"id_first_name\" class=\"form-control\" type=\"text\" ng-model=\"model.first_name\" placeholder=\"First Name\" />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.first_name\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_last_name\">Last Name</label>\n                <input name=\"last_name\" id=\"id_last_name\" class=\"form-control\" type=\"text\" ng-model=\"model.last_name\" placeholder=\"Last Name\" />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.last_name\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_email\">Email</label>\n                <input name=\"email\" id=\"id_email\" class=\"form-control\" type=\"email\" ng-model=\"model.email\" placeholder=\"Email\" required />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.email\">{{error}}</div>\n            <button type=\"submit\" ng-show=\"authenticated\" class=\"btn btn-primary\">Update Profile</button>\n        </form>\n        <div class=\"alert alert-warning\" ng-if=\"authenticated == false\">You need to be logged in to do this.</div>\n    </div>\n    <div ng-if=\"complete == true\">\n        <div class=\"alert alert-success\">You have updated your profile.</div>\n    </div>\n</div>\n");
+        $templateCache.put("app-templates/app/partial/account/account.html", "<div id=\"userProfile_view\" ng-controller=\"UserProfileController\">\n    <div ng-if=\"complete == false\">\n        <form role=\"form\" ng-if=\"authenticated\" name=\"userProfileForm\" ng-submit=\"updateProfile(userProfileForm, model)\" novalidate>\n            <div class=\"form-group\">\n                <label for=\"id_first_name\">First Name</label>\n                <input name=\"first_name\" id=\"id_first_name\" class=\"form-control\" type=\"text\" ng-model=\"model.first_name\" placeholder=\"First Name\" />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.first_name\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_last_name\">Last Name</label>\n                <input name=\"last_name\" id=\"id_last_name\" class=\"form-control\" type=\"text\" ng-model=\"model.last_name\" placeholder=\"Last Name\" />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.last_name\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_email\">Email</label>\n                <input name=\"email\" id=\"id_email\" class=\"form-control\" type=\"email\" ng-model=\"model.email\" placeholder=\"Email\" required />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.email\">{{error}}</div>\n            <button type=\"submit\" ng-show=\"authenticated\" class=\"btn btn-primary\">Update Profile</button>\n            <a ui-sref=\"changePassword\"><button type=\"button\" ng-show=\"authenticated\" class=\"btn btn-primary\">Change Password</button></a>\n        </form>\n        <div class=\"alert alert-warning\" ng-if=\"authenticated == false\">You need to be logged in to do this.</div>\n    </div>\n    <div ng-if=\"complete == true\">\n        <div class=\"alert alert-success\">You have updated your profile.</div>\n    </div>\n</div>\n");
         $templateCache.put("app-templates/app/partial/account/login.html", "<div id=\"login_view\" ng-controller=\"LoginController\">\n    <div class=\"header\">\n        <h3 class=\"text-muted\">Please login using your eBAGIS user credentials</h3>\n    </div>\n    <form role=\"form\" ng-submit=\"login(loginForm)\" name=\"loginForm\" novalidate>\n        <div class=\"form-group\">\n            <label for=\"id_username\">Username</label>\n            <input name=\"username\" id=\"id_username\" type=\"text\" ng-model=\"model.username\" placeholder=\"Username\" class=\"form-control\" required />\n        </div>\n        <div class=\"alert alert-danger\" ng-repeat=\"error in errors.username\">{{error}}</div>\n        <div class=\"form-group\">\n            <label for=\"id_password\">Password</label>\n            <input name=\"password\" id=\"id_password\" type=\"password\" ng-model=\"model.password\" placeholder=\"Password\" class=\"form-control\" required />\n        </div>\n        <div class=\"alert alert-danger\" ng-repeat=\"error in errors.password\">{{error}}</div>\n        <div class=\"alert alert-danger\" ng-repeat=\"error in errors.non_field_errors\">{{error}}</div>\n        <div class=\"alert alert-danger\" ng-if=\"error\">{{error}}</div>\n        <button type=\"submit\" class=\"btn btn-primary\">Login</button>\n        <a ui-sref=\"forgot\">Trouble logging in?</a>\n    </form>\n</div>\n");
         $templateCache.put("app-templates/app/partial/account/logout.html", "<div id=\"logout_view\" ng-controller=\"LogoutController\">\n	<div class=\"alert alert-info\">You have logged out.</div>\n</div>\n");
         $templateCache.put("app-templates/app/partial/account/passwordchange.html", "<div id=\"passwordChange_view\" ng-controller=\"PasswordChangeController\">\n    <div ng-if=\"complete == false\">\n        <form role=\"form\" ng-submit=\"changePassword(changePasswordForm)\" name=\"changePasswordForm\" ng-if=\"authenticated\" novalidate>\n            <div class=\"form-group\">\n                <label for=\"id_password1\">New Password</label>\n                <input name=\"new_password1\" id=\"id_password1\" type=\"password\" ng-model=\"model.new_password1\" placeholder=\"New Password\" class=\"form-control\" required />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.new_password1\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_password2\">Repeat Password</label>\n                <input name=\"new_password2\" id=\"id_password2\" type=\"password\" ng-model=\"model.new_password2\" placeholder=\"Repeat Password\" class=\"form-control\" required />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.new_password2\">{{error}}</div>\n            <button ng-show=\"authenticated\" type=\"submit\" class=\"btn btn-primary\">Change Password</button>\n        </form>\n        <div class=\"alert alert-warning\" ng-if=\"authenticated != true\">You need to be logged in to do this!</div>\n    </div>\n    <div ng-if=\"complete == true\">\n        <div class=\"alert alert-success\">You have changed your password.</div>\n    </div>\n</div>\n");
@@ -1045,6 +830,7 @@ angular.module("app.templates", []).run(["$templateCache", function ($templateCa
         $templateCache.put("app-templates/app/partial/account/register.html", "<div id=\"register_view\" ng-controller=\"RegisterController\">\n    <div class=header>\n        <h3 class=\"text-muted\">Create an eBAGIS user account</h3>\n    </div>\n\n    <div ng-if=\"complete == false\">\n        <form role=\"form\" ng-if=\"authenticated != true\" name=\"registerForm\" ng-submit=\"register(registerForm)\" novalidate>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.firstName\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_firstName\">First Name</label>\n                <input name=\"firstName\" id=\"id_firstName\" class=\"form-control\" type=\"text\" ng-model=\"model.firstName\" placeholder=\"First Name\" />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.lastName\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_lastName\">Last Name</label>\n                <input name=\"lastName\" id=\"id_lastName\" class=\"form-control\" type=\"text\" ng-model=\"model.lastName\" placeholder=\"Last Name\" />\n            </div>\n            <div class=\"form-group\">\n                <label for=\"id_username\">Username</label>\n                <input name=\"username\" id=\"id_username\" class=\"form-control\" type=\"text\" ng-model=\"model.username\" placeholder=\"Username\" required />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.username\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_password\">Password</label>\n                <input name=\"password1\" id=\"id_password1\" class=\"form-control\" type=\"password\" ng-model=\"model.password1\" placeholder=\"Password\" required />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.password1\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_password\">Repeat Password</label>\n                <input name=\"password\" id=\"id_password2\" class=\"form-control\" type=\"password\" ng-model=\"model.password2\" placeholder=\"Repeat Password\" required />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.password2\">{{error}}</div>\n            <div class=\"form-group\">\n                <label for=\"id_email\">Email</label>\n                <input name=\"email\" id=\"id_email\" class=\"form-control\" type=\"email\" ng-model=\"model.email\" placeholder=\"Email\" required />\n            </div>\n            <div class=\"alert alert-danger\" ng-repeat=\"error in errors.email\">{{error}}</div>\n            <button ng-hide=\"authenticated\" type=\"submit\" class=\"btn btn-primary\">Register</button>\n        </form>\n        <p ng-if=\"authenticated\">You are already logged in!  You don\'t need to register.</p>\n    </div>\n    <div ng-if=\"complete == true\">\n        <div class=\"alert alert-success\">Great!  You\'ve just registered.  You should receive an email shortly with instructions on how to activate your account.</div>\n    </div>\n</div>\n");
         $templateCache.put("app-templates/app/partial/account/verifyemail.html", "<div id=\"verifyEmail_view\" ng-controller=\"VerifyEmailController\">\n	<div ng-if=\"success\" class=\"alert alert-success\">You have successfully verified your email address.</div>\n	<div ng-if=\"failure\" class=\"alert alert-warning\">Sorry, there\'s been an error.</div>\n</div>\n");
         $templateCache.put("app-templates/app/partial/header/account.html", "<li><a ng-hide=\"authenticated\" ng-href=\"#/register\">Register</a></li>\n<li><a ng-hide=\"authenticated\" href=\"#/login\">Login</a></li>\n<li class=\"dropdown\" dropdown=\"\" ng-show=\"authenticated\"\n    <a href=\"#\" class=\"dropdown-toggle\" dropdown-toggle=\"\" data-toggle=\"dropdown\">Dropdown               <b class=\"caret\"></b></a>\n    <ul class=\"dropdown-menu\" role=\"menu\">\n        <li role=\"menuitem\"><a href=\"#/account\">User Account</a></li>\n        <li class=\"divider\"></li>\n        <li role=\"menuitem\"><a href=\"#/logout\">Sign Out</a></li>\n    </ul>\n</li>\n\n\n<!-- Single button with keyboard nav\n<li><a ng-hide=\"authenticated\" ng-href=\"#/register\">Register</a></li>\n<li><a ng-hide=\"authenticated\" href=\"#/login\">Login</a></li>\n<li>\n    <div class=\"btn-group\" uib-dropdown keyboard-nav ng-show=\"authenticated\">\n        <button id=\"simple-btn-keyboard-nav\" type=\"button\" class=\"btn btn-primary\" uib-dropdown-toggle>\n            Dropdown with keyboard navigation <span class=\"caret\"></span>\n        </button>\n        <ul class=\"dropdown-menu\" uib-dropdown-menu role=\"menu\" aria-labelledby=\"simple-btn-keyboard-nav\">\n            <li role=\"menuitem\"><a href=\"#/account\">User Account</a></li>\n            <li class=\"divider\"></li>\n            <li role=\"menuitem\"><a href=\"#/logout\">Sign Out</a></li>\n        </ul>\n    </div>\n</li>\n<p>\n    <a ng-hide=\"authenticated\" href=\"#/login\" class=\"btn btn-primary\">Login</a>\n    <a ng-hide=\"authenticated\" href=\"#/passwordReset\" class=\"btn btn-primary\">Send Password Reset</a>\n    <a ng-hide=\"authenticated\" ng-click=\"goConfirmReset()\" class=\"btn btn-primary\">Confirm Password Reset</a>\n</p>\n<p>\n    <a ng-show=\"authenticated\" href=\"#/logout\" class=\"btn btn-primary\">Logout</a>\n    <a ng-hide=\"authenticated\" ng-href=\"#/register\" class=\"btn btn-primary\">Register</a>\n    <a ng-click=\"goVerify()\" class=\"btn btn-primary\">Verify Email</a>\n    <a ng-show=\"authenticated\" href=\"#/passwordChange\" class=\"btn btn-primary\">Change Password</a>\n    <a ng-show=\"authenticated\" href=\"#/userProfile\" class=\"btn btn-primary\">Profile</a>\n    <a href=\"#/authRequired\" class=\"btn btn-primary\">Restricted Page</a>\n</p>\n-->\n");
-        $templateCache.put("app-templates/app/partial/header/header.html", "<nav class=\"navbar navbar-inverse navbar-fixed-top\" role=\"navigation\">\n  <!-- Brand and toggle get grouped for better mobile display -->\n  <div class=\"navbar-header\">\n    <button type=\"button\" class=\"navbar-toggle\" ng-init=\"navCollapsed = true\" ng-click=\"navCollapsed = !navCollapsed\">\n      <span class=\"sr-only\">Toggle navigation</span>\n      <span class=\"icon-bar\"></span>\n      <span class=\"icon-bar\"></span>\n      <span class=\"icon-bar\"></span>\n    </button>\n    <a class=\"navbar-brand\" ui-sref=\"home\">NRCS NWCC eBAGIS</a>\n  </div>\n  <!-- Collect the nav links, forms, and other content for toggling -->\n  <div class=\"collapse navbar-collapse\" collapse=\"navCollapsed\">\n    <ul class=\"nav navbar-nav navbar-right\">\n        <li><a ng-hide=\"authenticated\" ui-sref=\"register\">Register</a></li>\n        <li><a ng-hide=\"authenticated\" ui-sref=\"login\">Login</a></li>\n        <li>\n            <a ng-show=\"authenticated\" class=\"dropdown-toggle\" data-toggle=\"dropdown\" role=\"button\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                Hello {{user.first_name}}<span class=\"caret\"></span>\n            </a>\n            <ul class=\"dropdown-menu\">\n           <!-- <div class=\"btn-group\" uib-dropdown keyboard-nav ng-show=\"authenticated\">\n                Dropdown with keyboard navigation <span class=\"caret\"></span>\n                <ul class=\"dropdown-menu\" uib-dropdown-menu role=\"menu\" aria-labelledby=\"simple-btn-keyboard-nav\">-->\n                    <li role=\"menuitem\"><a ui-sref=\"account\">Your Account</a></li>\n                    <li class=\"divider\"></li>\n                    <li role=\"menuitem\"><a ui-sref=\"logout\">Sign Out</a></li>\n                </ul>\n            </div>\n        </li>\n    </ul>\n  </div>\n  <!-- /.navbar-collapse -->\n</nav>\n\n\n<!--\n<nav class=\"navbar navbar-inverse navbar-fixed-top\">\n    <div class=\"navbar-header\">\n      <a class=\"navbar-brand\" href=\"#\">NRCS NWCC eBAIGS</a>\n    </div>\n    <ul class=\"nav navbar-nav navbar-right\">\n      <header-account></header-account>\n    </ul>\n</nav>\n\n<p>\n    <a ng-hide=\"authenticated\" href=\"#/login\" class=\"btn btn-primary\">Login</a>\n    <a ng-hide=\"authenticated\" href=\"#/passwordReset\" class=\"btn btn-primary\">Send Password Reset</a>\n    <a ng-hide=\"authenticated\" ng-click=\"goConfirmReset()\" class=\"btn btn-primary\">Confirm Password Reset</a>\n</p>\n<p>\n    <a ng-show=\"authenticated\" href=\"#/logout\" class=\"btn btn-primary\">Logout</a>\n    <a ng-hide=\"authenticated\" ng-href=\"#/register\" class=\"btn btn-primary\">Register</a>\n    <a ng-click=\"goVerify()\" class=\"btn btn-primary\">Verify Email</a>\n    <a ng-show=\"authenticated\" href=\"#/passwordChange\" class=\"btn btn-primary\">Change Password</a>\n    <a ng-show=\"authenticated\" href=\"#/userProfile\" class=\"btn btn-primary\">Profile</a>\n    <a href=\"#/authRequired\" class=\"btn btn-primary\">Restricted Page</a>\n</p>\n-->\n");
-        $templateCache.put("app-templates/app/partial/map/map.html", "<div id=\"map_view\" ng-controller=\"MapController\">\n    <div class=\"uk-grid uk-margin-remove uk-grid-collapse\" id=\"main\">\n        <!--SIDEBAR-->\n        <div class =\"overlay uk-width-1-5\">\n            <div id=\"sidebar\">\n                <div class=\"sidebar-wrapper\">\n                    <div class=\"panel panel-default\" id=\"features\">\n                        <div class=\"panel-heading\">\n                            <h3 class=\"panel-title\">Areas of Interest</h3>\n                        </div>\n                        <div class=\"panel-body\" id=\'#panel-body\'>\n                            <div class=\"row\">\n                                <input type=\"text\" class=\"form-control search\" placeholder=\"Filter\" />\n                                <button type=\"button\" class=\"btn sort\" data-sort=\"feature-name\" id=\"sort-btn\"><i class=\"fa fa-sort-alpha-desc\" aria-hidden=\"true\"></i> Sort</button>\n                            </div>\n                        </div>\n                        <div class=\"sidebar-table\">\n                            <table class=\"table table-hover\" id=\"feature-list\">\n                                <thead class=\"hidden\">\n                                    <tr>\n                                        <th>Icon</th>\n                                    <tr>\n                                    <tr>\n                                        <th>Name</th>\n                                    <tr>\n                                </thead>\n                                <tbody class=\"list\"></tbody>\n                            </table>\n                        </div>\n                    </div>\n                </div>\n            </div>\n        </div>\n        <!-- END OF SIDEBAR-->\n\n        <!--MAP AND bottom bar-->\n        <div class=\"uk-width-4-5\">\n            <div id=\"map\"></div>\n            <div id=\"bar\"></div>\n\n        </div>\n    </div>\n</div>\n");
+        $templateCache.put("app-templates/app/partial/header/header.html", "<nav class=\"navbar navbar-inverse navbar-fixed-top\" role=\"navigation\">\n  <!-- Brand and toggle get grouped for better mobile display -->\n  <div class=\"navbar-header\">\n    <button type=\"button\" class=\"navbar-toggle\" ng-init=\"navCollapsed = true\" ng-click=\"navCollapsed = !navCollapsed\">\n      <span class=\"sr-only\">Toggle navigation</span>\n      <span class=\"icon-bar\"></span>\n      <span class=\"icon-bar\"></span>\n      <span class=\"icon-bar\"></span>\n    </button>\n    <a class=\"navbar-brand\" ui-sref=\"account\">NRCS NWCC eBAGIS</a>\n  </div>\n  <!-- Collect the nav links, forms, and other content for toggling -->\n  <div class=\"collapse navbar-collapse\" collapse=\"navCollapsed\">\n    <ul class=\"nav navbar-nav navbar-right\">\n        <li><a ng-hide=\"authenticated\" ui-sref=\"register\">Register</a></li>\n        <li><a ng-hide=\"authenticated\" ui-sref=\"login\">Login</a></li>\n        <li>\n            <a ng-show=\"authenticated\" class=\"dropdown-toggle\" data-toggle=\"dropdown\" role=\"button\" aria-haspopup=\"true\" aria-expanded=\"false\">\n                Hello {{user.first_name}}<span class=\"caret\"></span>\n            </a>\n            <ul class=\"dropdown-menu\">\n           <!-- <div class=\"btn-group\" uib-dropdown keyboard-nav ng-show=\"authenticated\">\n                Dropdown with keyboard navigation <span class=\"caret\"></span>\n                <ul class=\"dropdown-menu\" uib-dropdown-menu role=\"menu\" aria-labelledby=\"simple-btn-keyboard-nav\">-->\n                    <li role=\"menuitem\"><a ui-sref=\"account\">Your Account</a></li>\n                    <li class=\"divider\"></li>\n                    <li role=\"menuitem\"><a ui-sref=\"logout\">Sign Out</a></li>\n                </ul>\n            </div>\n        </li>\n    </ul>\n  </div>\n  <!-- /.navbar-collapse -->\n</nav>\n\n\n<!--\n<nav class=\"navbar navbar-inverse navbar-fixed-top\">\n    <div class=\"navbar-header\">\n      <a class=\"navbar-brand\" href=\"#\">NRCS NWCC eBAIGS</a>\n    </div>\n    <ul class=\"nav navbar-nav navbar-right\">\n      <header-account></header-account>\n    </ul>\n</nav>\n\n<p>\n    <a ng-hide=\"authenticated\" href=\"#/login\" class=\"btn btn-primary\">Login</a>\n    <a ng-hide=\"authenticated\" href=\"#/passwordReset\" class=\"btn btn-primary\">Send Password Reset</a>\n    <a ng-hide=\"authenticated\" ng-click=\"goConfirmReset()\" class=\"btn btn-primary\">Confirm Password Reset</a>\n</p>\n<p>\n    <a ng-show=\"authenticated\" href=\"#/logout\" class=\"btn btn-primary\">Logout</a>\n    <a ng-hide=\"authenticated\" ng-href=\"#/register\" class=\"btn btn-primary\">Register</a>\n    <a ng-click=\"goVerify()\" class=\"btn btn-primary\">Verify Email</a>\n    <a ng-show=\"authenticated\" href=\"#/passwordChange\" class=\"btn btn-primary\">Change Password</a>\n    <a ng-show=\"authenticated\" href=\"#/userProfile\" class=\"btn btn-primary\">Profile</a>\n    <a href=\"#/authRequired\" class=\"btn btn-primary\">Restricted Page</a>\n</p>\n-->\n");
+        $templateCache.put("app-templates/app/partial/main/404.html", "<p>\n    The resource you are attempting to access could not be found. If you feel you reached this page in error, please contact the site administrator.\n</p>\n");
+        $templateCache.put("app-templates/app/partial/main/home.html", "<!--\n<p>\n    <a ng-hide=\"authenticated\" href=\"#/login\" class=\"btn btn-primary\">Login</a>\n    <a ng-hide=\"authenticated\" href=\"#/passwordReset\" class=\"btn btn-primary\">Send Password Reset</a>\n    <a ng-hide=\"authenticated\" ng-click=\"goConfirmReset()\" class=\"btn btn-primary\">Confirm Password Reset</a>\n</p>\n<p>\n    <a ng-show=\"authenticated\" href=\"#/logout\" class=\"btn btn-primary\">Logout</a>\n    <a ng-hide=\"authenticated\" ng-href=\"#/register\" class=\"btn btn-primary\">Register</a>\n    <a ng-click=\"goVerify()\" class=\"btn btn-primary\">Verify Email</a>\n    <a ng-show=\"authenticated\" href=\"#/passwordChange\" class=\"btn btn-primary\">Change Password</a>\n    <a ng-show=\"authenticated\" href=\"#/userProfile\" class=\"btn btn-primary\">Profile</a>\n    <a href=\"#/authRequired\" class=\"btn btn-primary\">Restricted Page</a>\n</p>\n-->\n");
     }]);
