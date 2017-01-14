@@ -406,18 +406,21 @@ var ebagisAPI = (function () {
     ebagisAPI.prototype.request = function (args) {
         // uncomment next line for request tracing
         console.trace();
+        params = args.params || {};
+        args = args || {};
+        url = this.API_URL + args.url;
+        method = args.method || "GET";
+        params = params;
+        data = args.data || {};
+        authenticated_endpoint = args.requires_auth || false;
+        api = this;
         // Let's retrieve the token from the cookie, if available
         if (this.$cookies.get('token')) {
             this.$http.defaults.headers.common.Authorization = 'Token ' + this.$cookies.get('token');
         }
-        // Continue
-        params = args.params || {};
-        args = args || {};
-        url = this.API_URL + args.url,
-            method = args.method || "GET",
-            params = params,
-            data = args.data || {};
-        api = this;
+        else if (authenticated_endpoint) {
+            return Promise.reject("User not logged in");
+        }
         return new Promise(function (resolve, reject) {
             // Fire the request, as configured.
             api.$http({
@@ -459,6 +462,7 @@ var ebagisAPI = (function () {
     ebagisAPI.prototype.clearUserToken = function () {
         var api = this;
         api.$cookies.remove('token');
+        api.$cookies.remove('sessionid');
     };
     ebagisAPI.prototype.register = function (firstName, lastName, username, password1, password2, email, more) {
         var data = {
@@ -502,7 +506,8 @@ var ebagisAPI = (function () {
         var api = this;
         return api.request({
             'method': "POST",
-            'url': "/logout/"
+            'url': "/logout/",
+            'requires_auth': true
         }).then(function (data) {
             delete api.$http.defaults.headers.common.Authorization;
             api.clearUserToken();
@@ -515,7 +520,8 @@ var ebagisAPI = (function () {
             'data': {
                 'new_password1': password1,
                 'new_password2': password2
-            }
+            },
+            'requires_auth': true
         });
     };
     ebagisAPI.prototype.resetPassword = function (email) {
@@ -532,14 +538,16 @@ var ebagisAPI = (function () {
     ebagisAPI.prototype.profile = function () {
         return this.request({
             'method': "GET",
-            'url': "/user/"
+            'url': "/user/",
+            'requires_auth': true
         });
     };
     ebagisAPI.prototype.updateProfile = function (data) {
         return this.request({
             'method': "PATCH",
             'url': "/user/",
-            'data': data
+            'data': data,
+            'requires_auth': true
         });
     };
     ebagisAPI.prototype.verify = function (key) {
