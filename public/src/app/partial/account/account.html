@@ -16,8 +16,9 @@
                 <input name="email" id="id_email" class="form-control" type="email" ng-model="model.email" placeholder="Email" required />
             </div>
             <div class="alert alert-danger" ng-repeat="error in errors.email">{{error}}</div>
-            <button type="submit" ng-show="authenticated" class="btn btn-primary">Update Profile</button>
-            <a ui-sref="changePassword"><button type="button" ng-show="authenticated" class="btn btn-primary">Change Password</button></a>
+            <button type="submit" ng-show="authenticated" class="btn btn-primary" ng-disabled="userProfileForm.$pristine">Save Changes</button>
+            <button type="button" ng-click="resetForm()" ng-disabled="userProfileForm.$pristine" class="btn btn-primary">Cancel</button>
+            <a ui-sref="changePassword"><button type="button" ng-show="authenticated" class="btn btn-primary pull-right">Change Password</button></a>
         </form>
         <div class="alert alert-warning" ng-if="authenticated == false">You need to be logged in to do this.</div>
     </div>

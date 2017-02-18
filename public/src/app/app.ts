@@ -432,11 +432,15 @@ app.controller('RootController', ['$scope', '$state', function ($scope, $state) 
     $state.go("account");
 }]);
 
-app.controller('UserProfileController', ['$scope', 'ebagisAPI', 'Validate', 'UserProfile', function ($scope, ebagisAPI, Validate, UserProfile) {
+app.controller('UserProfileController', ['$scope', '$state', 'ebagisAPI', 'Validate', 'UserProfile', function ($scope, $state, ebagisAPI, Validate, UserProfile) {
     $scope.model = {'first_name':'','last_name':'','email':''};
     $scope.complete = false;
    
     $scope.model = UserProfile.data;
+
+    $scope.resetForm = function() {
+        $state.reload();
+    }
 
     $scope.updateProfile = function(formData, model){
         $scope.errors = [];
