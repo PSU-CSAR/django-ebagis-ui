@@ -1,6 +1,6 @@
 {
   "name": "ebagis",
-  "version": "0.0.23",
+  "version": "0.0.25",
   "dependencies": {
     "bootstrap": "*",
     "angular": "~1.5.5",
